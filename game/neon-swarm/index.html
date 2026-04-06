@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEON SWARM | NEURAL ARCADE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-deep: #000000;
+            --neon-cyan: #00ffff;
+            --neon-magenta: #ff00ff;
+            --neon-purple: #bc13fe;
+            --neon-red: #ff0033;
+            --neon-yellow: #fefe33;
+            --font-main: 'Orbitron', sans-serif;
+            --font-sub: 'Rajdhani', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: none; user-select: none; }
+
+        body {
+            background-color: var(--bg-deep); color: white;
+            font-family: var(--font-sub); height: 100vh; display: flex;
+            align-items: center; justify-content: center; overflow: hidden;
+            flex-direction: column;
+        }
+
+        /* --- ARCADE CRT OVERLAYS --- */
+        .scanlines { position: fixed; inset: 0; z-index: 999; pointer-events: none; background: linear-gradient(rgba(0,0,0,0) 50%, rgba(0, 0, 0, 0.3) 50%); background-size: 100% 4px; }
+        .vignette { position: fixed; inset: 0; z-index: 998; pointer-events: none; background: radial-gradient(circle at center, transparent 40%, rgba(0,0,0,0.95) 100%); }
+
+        /* --- GLITCH EFFECT --- */
+        .glitch-screen { animation: screenGlitch 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes screenGlitch {
+            0% { filter: hue-rotate(0deg) contrast(1); transform: translate(0); }
+            20% { filter: hue-rotate(-50deg) contrast(2); transform: translate(-10px, 5px); }
+            40% { filter: hue-rotate(50deg) contrast(2); transform: translate(10px, -5px); }
+            60% { filter: invert(1); transform: translate(-5px, -5px); }
+            100% { filter: hue-rotate(0deg) contrast(1); transform: translate(0); }
+        }
+
+        /* --- ZERO-LAG HARDWARE ACCELERATED CURSOR --- */
+        .cursor-dot { 
+            position: fixed; top: 0; left: 0; width: 6px; height: 6px; 
+            background: var(--neon-cyan); border-radius: 50%; pointer-events: none; 
+            z-index: 10000; box-shadow: 0 0 15px var(--neon-cyan); 
+            will-change: transform; 
+        }
+        .cursor-ring { 
+            position: fixed; top: 0; left: 0; width: 30px; height: 30px; 
+            border: 2px solid rgba(0, 255, 255, 0.8); border-radius: 50%; pointer-events: none; 
+            z-index: 9999; transition: width 0.2s, height 0.2s, border-color 0.2s; 
+            will-change: transform; 
+        }
+
+        /* --- HUD --- */
+        .hud {
+            display: flex; justify-content: space-between; align-items: center;
+            width: 100%; max-width: 1300px; padding: 15px 40px; margin-bottom: 20px;
+            background: rgba(10, 10, 15, 0.9); border: 2px solid var(--neon-cyan);
+            border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,1), inset 0 0 20px rgba(0, 255, 255, 0.15);
+            backdrop-filter: blur(15px); z-index: 10;
+        }
+        .stat-box { display: flex; flex-direction: column; align-items: center; width: 30%; }
+        .stat-label { font-size: 0.9rem; color: #fff; letter-spacing: 4px; font-weight: 900; margin-bottom: 5px; opacity: 0.8;}
+        .stat-value { font-family: var(--font-main); font-size: 2.8rem; color: #fff; font-weight: 900; text-shadow: 0 0 20px rgba(255,255,255,0.6); }
+        
+        .score-level { color: var(--neon-cyan); text-shadow: 0 0 20px var(--neon-cyan); }
+        .wave-level { color: var(--neon-magenta); text-shadow: 0 0 20px var(--neon-magenta); }
+
+        .lives-container { display: flex; gap: 10px; margin-top: 10px; }
+        .life-icon { width: 25px; height: 12px; background: var(--neon-cyan); box-shadow: 0 0 15px var(--neon-cyan); border-radius: 2px; clip-path: polygon(10% 0, 90% 0, 100% 100%, 0% 100%);}
+
+        /* --- GAME ARENA --- */
+        .arena-container {
+            position: relative; border: 3px solid var(--neon-magenta); border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,1), 0 0 50px rgba(255, 0, 255, 0.2);
+            background: #000000; overflow: hidden;
+            width: 100%; max-width: 1300px; height: 750px;
+        }
+
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* --- SCREENS & BANNERS --- */
+        .overlay {
+            position: absolute; inset: 0; background: rgba(0, 0, 0, 0.85); backdrop-filter: blur(15px);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 50; transition: opacity 0.4s; border-radius: 10px;
+        }
+        .hidden { opacity: 0; pointer-events: none; z-index: -1; }
+
+        .title-glitch {
+            font-family: var(--font-main); font-size: 6.5rem; font-weight: 900; letter-spacing: 15px; margin-bottom: 10px;
+            text-shadow: 0 10px 40px #000, -4px -4px var(--neon-cyan), 4px 4px var(--neon-magenta); text-transform: uppercase; text-align: center; color: #fff;
+        }
+        .subtitle { font-size: 1.4rem; color: #fff; letter-spacing: 8px; margin-bottom: 50px; text-transform: uppercase; text-shadow: 0 0 15px rgba(255,255,255,0.3); font-weight: 700;}
+
+        .cyber-btn {
+            background: rgba(0,0,0,0.8); border: 2px solid var(--neon-cyan); color: var(--neon-cyan);
+            padding: 15px 60px; font-family: var(--font-main); font-size: 1.5rem; font-weight: 900;
+            letter-spacing: 5px; cursor: pointer; transition: 0.3s; text-transform: uppercase;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.2), inset 0 0 10px rgba(0, 255, 255, 0.1); border-radius: 6px;
+        }
+        .cyber-btn:hover { background: var(--neon-cyan); color: #000; box-shadow: 0 0 50px var(--neon-cyan); transform: translateY(-3px) scale(1.05); }
+        
+        .wave-banner {
+            position: absolute; top: 40%; left: 0; width: 100%; text-align: center;
+            font-family: var(--font-main); font-size: 5.5rem; font-weight: 900; color: #fff;
+            letter-spacing: 20px; text-shadow: 0 0 40px var(--neon-cyan), -4px -4px var(--neon-magenta); z-index: 40;
+            opacity: 0; pointer-events: none; transition: 0.3s;
+        }
+        .wave-banner.show { animation: cinematicZoom 2.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        @keyframes cinematicZoom {
+            0% { transform: scale(0.5) translateY(50px); filter: blur(20px); opacity: 0; letter-spacing: 5px;}
+            15% { transform: scale(1) translateY(0); filter: blur(0px); opacity: 1; letter-spacing: 20px;}
+            85% { transform: scale(1.1) translateY(0); filter: blur(0px); opacity: 1; letter-spacing: 25px;}
+            100% { transform: scale(2) translateY(-50px); filter: blur(20px); opacity: 0; letter-spacing: 40px;}
+        }
+
+        /* Overclock HUD element */
+        #overclock-bar-wrap {
+            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
+            width: 400px; height: 12px; background: rgba(255,255,255,0.1);
+            border: 2px solid var(--neon-cyan); border-radius: 6px; overflow: hidden;
+            box-shadow: 0 0 20px rgba(0,255,255,0.3); z-index: 10;
+        }
+        #overclock-fill { height: 100%; width: 0%; background: var(--neon-cyan); transition: width 0.1s linear; box-shadow: 0 0 20px var(--neon-cyan); }
+        .overclocking #overclock-fill { background: var(--neon-yellow); box-shadow: 0 0 20px var(--neon-yellow); }
+        .overclocking #overclock-bar-wrap { border-color: var(--neon-yellow); animation: pulseYellow 0.5s infinite alternate; }
+
+        @keyframes pulseYellow { from { opacity: 0.6; box-shadow: 0 0 10px var(--neon-yellow);} to { opacity: 1; box-shadow: 0 0 40px var(--neon-yellow);} }
+
+        /* Dynamic arena border during overclock */
+        .arena-container.overclocking { border-color: var(--neon-yellow); box-shadow: 0 20px 60px rgba(0,0,0,1), 0 0 60px rgba(254, 254, 51, 0.3), inset 0 0 30px rgba(254, 254, 51, 0.1); }
+
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+
+    <div class="cursor-dot"></div>
+    <div class="cursor-ring"></div>
+
+    <div class="hud">
+        <div class="stat-box">
+            <span class="stat-label">HULL_INTEGRITY</span>
+            <div class="lives-container" id="lives-display"></div>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">DATA_YIELD</span>
+            <span class="stat-value score-level" id="score">00000</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">SWARM_WAVE</span>
+            <span class="stat-value wave-level" id="wave-disp">01</span>
+        </div>
+    </div>
+
+    <div class="arena-container" id="arena-wrap">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="overclock-bar-wrap">
+            <div id="overclock-fill"></div>
+        </div>
+
+        <div class="wave-banner" id="wave-banner">WARP SPEED</div>
+
+        <div class="overlay" id="start-menu">
+            <h1 class="title-glitch">NEON SWARM</h1>
+            <div class="subtitle">GRID-BREAKER COMBAT PROTOCOL</div>
+            <p style="color: var(--neon-cyan); letter-spacing: 6px; margin-bottom: 40px; font-weight:bold; font-size: 1.2rem; text-shadow: 0 0 10px var(--neon-cyan);">[ MOUSE = MOVE // CLICK = FIRE ]</p>
+            <button class="cyber-btn" onclick="startGame()">INITIATE PURGE</button>
+        </div>
+
+        <div class="overlay hidden" id="game-over-menu">
+            <h1 class="title-glitch" style="color: var(--neon-red); text-shadow: 0 10px 40px #000, -4px -4px var(--neon-purple), 4px 4px #fff;">SYSTEM FAILURE</h1>
+            <div class="subtitle" style="color: #fff;" id="end-desc">FINAL DATA YIELD: 00000</div>
+            <button class="cyber-btn" style="border-color: var(--neon-red); color: var(--neon-red); box-shadow: 0 0 20px rgba(255,0,51,0.3);" onclick="startGame()">
+                <i data-lucide="power" style="display:inline; margin-right:10px; vertical-align:middle;"></i>REBOOT SYSTEM
+            </button>
+        </div>
+    </div>
+
+<script>
+    lucide.createIcons();
+
+    // --- ZERO-LAG HARDWARE ACCELERATED CURSOR ---
+    const dot = document.querySelector('.cursor-dot');
+    const ring = document.querySelector('.cursor-ring');
+    
+    let targetX = window.innerWidth / 2;
+    let targetY = window.innerHeight / 2;
+    let ringX = targetX;
+    let ringY = targetY;
+
+    window.addEventListener('mousemove', (e) => {
+        targetX = e.clientX;
+        targetY = e.clientY;
+    });
+
+    function renderCursor() {
+        dot.style.transform = `translate3d(calc(${targetX}px - 50%), calc(${targetY}px - 50%), 0)`;
+        ringX += (targetX - ringX) * 0.15; 
+        ringY += (targetY - ringY) * 0.15;
+        ring.style.transform = `translate3d(calc(${ringX}px - 50%), calc(${ringY}px - 50%), 0)`;
+        requestAnimationFrame(renderCursor);
+    }
+    requestAnimationFrame(renderCursor);
+
+    document.querySelectorAll('button').forEach(el => {
+        el.addEventListener('mouseenter', () => { ring.style.width = '60px'; ring.style.height = '60px'; ring.style.borderColor = 'var(--neon-magenta)'; dot.style.background = 'var(--neon-magenta)'; });
+        el.addEventListener('mouseleave', () => { ring.style.width = '30px'; ring.style.height = '30px'; ring.style.borderColor = 'rgba(0, 255, 255, 0.8)'; dot.style.background = 'var(--neon-cyan)'; });
+    });
+
+    // --- CANVAS ENGINE ---
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const arenaWrap = document.getElementById("arena-wrap");
+    const waveBanner = document.getElementById("wave-banner");
+    
+    const LOGICAL_WIDTH = 1300;
+    const LOGICAL_HEIGHT = 750;
+
+    function setupCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = LOGICAL_WIDTH * dpr;
+        canvas.height = LOGICAL_HEIGHT * dpr;
+        ctx.scale(dpr, dpr);
+    }
+    setupCanvas();
+
+    // --- GAME STATE ---
+    let gameLoopId;
+    let isPlaying = false;
+    let isWarping = false;
+    let gameMouseX = LOGICAL_WIDTH / 2;
+    let score = 0;
+    let lives = 3;
+    let wave = 1;
+    let shakeAmount = 0;
+    let globalTime = 0; 
+    let bgScrollY = 0;
+
+    // Entities
+    let player = { x: LOGICAL_WIDTH / 2, y: LOGICAL_HEIGHT - 60, w: 60, h: 25, vx: 0, invuln: 0, history: [] };
+    let bullets = [];
+    let enemyBullets = [];
+    let swarm = []; 
+    let particles = [];
+    let sparks = []; // Kinetic bullet impacts
+    let chips = []; 
+    let shockwaves = [];
+    let floatingTexts = [];
+    let stars = [];
+
+    for(let i=0; i<150; i++) {
+        stars.push({
+            x: Math.random() * LOGICAL_WIDTH, y: Math.random() * LOGICAL_HEIGHT,
+            size: Math.random() * 2 + 0.5, speed: Math.random() * 1 + 0.2
+        });
+    }
+
+    const ENEMY_SIZE = 45;
+    const GRID_GAP = 15;
+    let swarmDirection = 1; 
+    let swarmY = 100; 
+    let swarmSpeed = 1;
+
+    let overclockLevel = 0;
+    const MAX_OVERCLOCK = 100;
+    let isOverclocked = false;
+    let overclockTimer = 0;
+    const overclockFill = document.getElementById('overclock-fill');
+
+    // Input Handling for Game
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = LOGICAL_WIDTH / rect.width;
+        gameMouseX = (e.clientX - rect.left) * scaleX;
+    });
+
+    canvas.addEventListener('click', fireBullet);
+
+    function fireBullet() {
+        if (!isPlaying || isWarping || swarm.length === 0 || player.invuln > 100) return;
+        if (!isOverclocked && bullets.length >= 6) return; 
+
+        if (isOverclocked) {
+            bullets.push(createBullet(player.x, player.y - 10, 0, true));
+            bullets.push(createBullet(player.x - 20, player.y, -0.15, true));
+            bullets.push(createBullet(player.x + 20, player.y, 0.15, true));
+            shakeAmount = 3;
+        } else {
+            bullets.push(createBullet(player.x, player.y - 10, 0, false));
+        }
+    }
+
+    function createBullet(x, y, angle, isMega) {
+        return {
+            x: x, y: y,
+            vx: Math.sin(angle) * 22,
+            vy: -25, 
+            length: isMega ? 50 : 30,
+            width: isMega ? 6 : 4,
+            color: isMega ? '#fefe33' : '#00ffff'
+        };
+    }
+
+    // --- GAME FACTORIES ---
+    function initSwarm() {
+        swarm = [];
+        swarmY = 80;
+        swarmSpeed = 1 + (wave * 0.2); 
+        
+        const patternType = wave % 3; 
+        const rows = 5 + Math.floor(wave / 4); 
+        const cols = 13;
+        
+        const totalGridWidth = (cols * ENEMY_SIZE) + ((cols - 1) * GRID_GAP);
+        const startX = (LOGICAL_WIDTH - totalGridWidth) / 2;
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                if (patternType === 1 && (r + c) % 2 === 0) continue; 
+                if (patternType === 2 && Math.abs(c - 6) > r + 2) continue; 
+
+                let type = 'grunt';
+                let color = '#ff00ff'; 
+                let hp = 1;
+                let isCore = false;
+
+                if (r === 0) { type = 'armored'; color = '#fefe33'; hp = 3; } 
+                else if (r === 1 || r === 2) { type = 'hunter'; color = '#bc13fe'; hp = 2; } 
+                
+                if (Math.random() < 0.12 && type !== 'armored') {
+                    isCore = true; color = '#0aff99'; 
+                }
+
+                swarm.push({
+                    x: startX + c * (ENEMY_SIZE + GRID_GAP),
+                    y: -500, // Start way off screen for drop-in animation
+                    baseX: startX + c * (ENEMY_SIZE + GRID_GAP),
+                    baseY: swarmY + r * (ENEMY_SIZE + GRID_GAP),
+                    r: r, c: c, size: ENEMY_SIZE,
+                    color: color, type: type, isCore: isCore, alive: true, hp: hp
+                });
+            }
+        }
+    }
+
+    // --- ADVANCED VFX CLASSES ---
+    class Particle {
+        constructor(x, y, color, speed) {
+            this.x = x; this.y = y; this.color = color;
+            this.angle = Math.random() * Math.PI * 2;
+            this.vx = Math.cos(this.angle) * (Math.random() * speed + 2);
+            this.vy = Math.sin(this.angle) * (Math.random() * speed + 2);
+            this.life = 1.0; this.decay = Math.random() * 0.04 + 0.01;
+            this.size = Math.random() * 6 + 2;
+        }
+        update() { this.x += this.vx; this.y += this.vy; this.life -= this.decay; }
+        draw(ctx) {
+            ctx.globalAlpha = Math.max(0, this.life);
+            ctx.fillStyle = this.color;
+            ctx.shadowBlur = 15; ctx.shadowColor = this.color;
+            ctx.fillRect(this.x, this.y, this.size, this.size);
+            ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
+        }
+    }
+
+    class Spark {
+        constructor(x, y, color) {
+            this.x = x; this.y = y; this.color = color;
+            this.angle = Math.random() * Math.PI * 2;
+            this.speed = Math.random() * 15 + 5;
+            this.vx = Math.cos(this.angle) * this.speed;
+            this.vy = Math.sin(this.angle) * this.speed;
+            this.life = 1.0; this.decay = 0.05;
+        }
+        update() { this.x += this.vx; this.y += this.vy; this.life -= this.decay; }
+        draw(ctx) {
+            ctx.globalAlpha = Math.max(0, this.life);
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+            ctx.shadowBlur = 10; ctx.shadowColor = this.color;
+            ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.x - this.vx, this.y - this.vy); ctx.stroke();
+            ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
+        }
+    }
+
+    class Shockwave {
+        constructor(x, y, color) {
+            this.x = x; this.y = y; this.color = color;
+            this.r = 10; this.life = 1.0;
+        }
+        update() { this.r += 20; this.life -= 0.05; }
+        draw(ctx) {
+            ctx.globalAlpha = Math.max(0, this.life);
+            ctx.strokeStyle = this.color; ctx.lineWidth = 6 * this.life;
+            ctx.shadowBlur = 20; ctx.shadowColor = this.color;
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.stroke();
+            ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
+        }
+    }
+
+    class FloatingText {
+        constructor(x, y, text, color) {
+            this.x = x; this.y = y; this.text = text; this.color = color;
+            this.life = 1.0; this.vy = -2;
+        }
+        update() { this.y += this.vy; this.life -= 0.02; }
+        draw(ctx) {
+            ctx.globalAlpha = Math.max(0, this.life);
+            ctx.fillStyle = this.color;
+            ctx.font = "900 1.5rem Orbitron";
+            ctx.shadowBlur = 15; ctx.shadowColor = this.color;
+            ctx.fillText(this.text, this.x, this.y);
+            ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
+        }
+    }
+
+    class DataChip {
+        constructor(x, y) {
+            this.x = x; this.y = y; this.vy = 4; this.size = 18; this.angle = 0;
+        }
+        update() { this.y += this.vy; this.angle += 0.1; }
+        draw(ctx) {
+            ctx.save(); ctx.translate(this.x, this.y); ctx.rotate(this.angle);
+            
+            // Pulsing Aura
+            ctx.fillStyle = 'rgba(0, 255, 255, 0.2)';
+            ctx.beginPath(); ctx.arc(0, 0, this.size + Math.sin(globalTime*0.2)*5, 0, Math.PI*2); ctx.fill();
+
+            ctx.fillStyle = '#00ffff'; ctx.shadowBlur = 20; ctx.shadowColor = '#00ffff';
+            ctx.fillRect(-this.size/2, -this.size/2, this.size, this.size);
+            ctx.fillStyle = '#fff'; ctx.fillRect(-3, -3, 6, 6);
+            ctx.restore();
+        }
+    }
+
+    function spawnParticlesAndSparks(x, y, color, pAmt, sAmt) {
+        for(let i=0; i<pAmt; i++) particles.push(new Particle(x, y, color, 8));
+        for(let i=0; i<sAmt; i++) sparks.push(new Spark(x, y, color));
+    }
+
+    // --- GAME FLOW LOGIC ---
+    function startGame() {
+        document.getElementById('start-menu').classList.add('hidden');
+        document.getElementById('game-over-menu').classList.add('hidden');
+        
+        score = 0; lives = 3; wave = 1; shakeAmount = 0;
+        overclockLevel = 0; isOverclocked = false; isWarping = false;
+        updateOverclockUI();
+        
+        bullets = []; enemyBullets = []; particles = []; sparks = []; chips = []; shockwaves = []; floatingTexts = [];
+        player.history = [];
+        
+        initSwarm();
+        updateHUD();
+        
+        isPlaying = true;
+        gameLoop();
+    }
+
+    function updateHUD() {
+        document.getElementById('score').innerText = score.toString().padStart(5, '0');
+        document.getElementById('wave-disp').innerText = wave.toString().padStart(2, '0');
+        let livesHtml = '';
+        for(let i=0; i<lives; i++) livesHtml += '<div class="life-icon"></div>';
+        document.getElementById('lives-display').innerHTML = livesHtml;
+    }
+
+    function updateOverclockUI() {
+        if (isOverclocked) {
+            overclockFill.style.width = '100%';
+            arenaWrap.classList.add('overclocking');
+        } else {
+            overclockFill.style.width = overclockLevel + '%';
+            arenaWrap.classList.remove('overclocking');
+        }
+    }
+
+    function triggerGameOver() {
+        isPlaying = false;
+        cancelAnimationFrame(gameLoopId);
+        
+        shakeAmount = 40; 
+        spawnParticlesAndSparks(player.x, player.y, '#00ffff', 80, 40); 
+        spawnParticlesAndSparks(player.x, player.y, '#ff0033', 50, 20); 
+        shockwaves.push(new Shockwave(player.x, player.y, '#00ffff'));
+        
+        draw(); 
+
+        setTimeout(() => {
+            document.getElementById('end-desc').innerText = `FINAL DATA YIELD: ${score.toString().padStart(5, '0')} AT WAVE ${wave}`;
+            document.getElementById('game-over-menu').classList.remove('hidden');
+        }, 1500);
+    }
+
+    function playerHit() {
+        if (player.invuln > 0) return;
+        
+        lives--;
+        updateHUD();
+        shakeAmount = 30;
+        player.invuln = 120; 
+        
+        document.body.classList.remove('glitch-screen');
+        void document.body.offsetWidth;
+        document.body.classList.add('glitch-screen');
+        
+        spawnParticlesAndSparks(player.x, player.y, '#00ffff', 40, 20);
+        shockwaves.push(new Shockwave(player.x, player.y, '#ff0033'));
+
+        if (lives <= 0) triggerGameOver();
+    }
+
+    function destroyEnemy(enemy, isChain = false, chainMultiplier = 1) {
+        if (!enemy.alive) return;
+        enemy.alive = false;
+        
+        const pts = (enemy.type === 'armored' ? 100 : 50) * chainMultiplier;
+        score += pts;
+        updateHUD();
+        
+        shakeAmount = isChain ? 12 : 4;
+        if(isChain) shockwaves.push(new Shockwave(enemy.x + enemy.size/2, enemy.y + enemy.size/2, enemy.color));
+        
+        spawnParticlesAndSparks(enemy.x + enemy.size/2, enemy.y + enemy.size/2, enemy.color, isChain ? 40 : 15, isChain ? 20 : 8);
+
+        if (isChain) {
+            floatingTexts.push(new FloatingText(enemy.x, enemy.y, `+${pts} CHAIN`, '#0aff99'));
+        }
+
+        if (!isOverclocked && !isChain) {
+            overclockLevel = Math.min(MAX_OVERCLOCK, overclockLevel + 4);
+            updateOverclockUI();
+            if (overclockLevel >= MAX_OVERCLOCK) activateOverclock();
+        }
+
+        if (enemy.isCore && Math.random() < 0.7) {
+            chips.push(new DataChip(enemy.x + enemy.size/2, enemy.y + enemy.size/2));
+        }
+
+        if (enemy.isCore) {
+            const neighbors = swarm.filter(e => e.alive && (
+                (e.r === enemy.r && Math.abs(e.c - enemy.c) === 1) || 
+                (e.c === enemy.c && Math.abs(e.r - enemy.r) === 1)    
+            ));
+            
+            neighbors.forEach((n, i) => {
+                // Enemy glitches slightly before blowing up
+                n.color = '#fff'; 
+                setTimeout(() => destroyEnemy(n, true, chainMultiplier + 1), 60 * (i+1));
+            });
+        }
+    }
+
+    function activateOverclock() {
+        isOverclocked = true;
+        overclockTimer = 600; 
+        updateOverclockUI();
+        spawnParticlesAndSparks(player.x, player.y, '#fefe33', 60, 30);
+        shockwaves.push(new Shockwave(player.x, player.y, '#fefe33'));
+        shakeAmount = 20;
+        floatingTexts.push(new FloatingText(player.x - 80, player.y - 40, `OVERCLOCK MAXIMUM`, '#fefe33'));
+    }
+
+    function triggerWaveClear() {
+        isWarping = true;
+        bullets = []; enemyBullets = []; chips = [];
+        
+        waveBanner.innerText = `WAVE ${wave} CLEARED`;
+        waveBanner.classList.add('show');
+        
+        setTimeout(() => {
+            wave++;
+            updateHUD();
+            initSwarm();
+            isWarping = false;
+            waveBanner.classList.remove('show');
+        }, 3000);
+    }
+
+    function update() {
+        globalTime++;
+
+        // Warp Speed Logic
+        let currentScrollSpeed = isWarping ? 40 : 2;
+        bgScrollY += currentScrollSpeed;
+        if(bgScrollY > 100) bgScrollY = 0;
+
+        stars.forEach(s => {
+            s.y += isWarping ? s.speed * 25 : s.speed;
+            if (s.y > LOGICAL_HEIGHT) { s.y = 0; s.x = Math.random() * LOGICAL_WIDTH; }
+        });
+
+        if (isWarping) {
+            // Recenter player during warp
+            player.vx = (LOGICAL_WIDTH/2 - player.x) * 0.1;
+            player.x += player.vx;
+            // Record history for dynamic trail
+            player.history.push({x: player.x, y: player.y, vx: player.vx});
+            if(player.history.length > 20) player.history.shift();
+            return;
+        }
+
+        // Player Bounds & Movement
+        player.vx = (gameMouseX - player.x) * 0.3; // Smooth follow
+        player.x += player.vx;
+        player.x = Math.max(player.w/2 + 20, Math.min(LOGICAL_WIDTH - player.w/2 - 20, player.x));
+        
+        if (player.invuln > 0) player.invuln--;
+
+        // Trail History
+        player.history.push({x: player.x, y: player.y, vx: player.vx});
+        if(player.history.length > 15) player.history.shift();
+
+        // Overclock timer
+        if (isOverclocked) {
+            overclockTimer--;
+            overclockFill.style.width = (overclockTimer / 600) * 100 + '%';
+            if (overclockTimer <= 0) {
+                isOverclocked = false; overclockLevel = 0; updateOverclockUI();
+            }
+        }
+
+        // Projectiles
+        bullets.forEach(b => { b.x += b.vx; b.y += b.vy; });
+        bullets = bullets.filter(b => b.y > -100);
+
+        enemyBullets.forEach(b => { b.y += b.vy; b.x += Math.sin(globalTime*0.1)*2; }); // Wavy bullets
+        enemyBullets = enemyBullets.filter(b => b.y < LOGICAL_HEIGHT + 50);
+
+        // Drops
+        chips.forEach(c => c.update());
+        for (let i = chips.length - 1; i >= 0; i--) {
+            let c = chips[i];
+            if (c.y > player.y - player.h && c.y < player.y + player.h && c.x > player.x - player.w/2 && c.x < player.x + player.w/2) {
+                activateOverclock(); chips.splice(i, 1);
+            }
+        }
+
+        // Swarm Logic
+        let hitEdge = false;
+        let lowestY = 0;
+        
+        swarm.forEach(e => {
+            if (!e.alive) return;
+            
+            // Drop-in lerp
+            e.y += (e.baseY + Math.sin(globalTime * 0.05 + e.c) * 12 - e.y) * 0.1;
+
+            // Lateral Movement
+            e.baseX += swarmSpeed * swarmDirection;
+            e.x = e.baseX;
+
+            lowestY = Math.max(lowestY, e.y + e.size);
+            if (e.x + e.size > LOGICAL_WIDTH - 30 || e.x < 30) hitEdge = true;
+
+            // Shooting
+            if (e.type === 'hunter' && Math.random() < 0.0025 * wave && e.y > 0) {
+                enemyBullets.push({ x: e.x + e.size/2, y: e.y + e.size, vy: 7 + (wave*0.4), size: 6, color: '#ff0033' });
+            }
+        });
+
+        if (hitEdge) {
+            swarmDirection *= -1;
+            swarmY += 40;
+            swarm.forEach(e => e.baseY += 40);
+            swarmSpeed += 0.15; 
+        }
+
+        if (lowestY > player.y - player.h) { triggerGameOver(); return; }
+
+        // --- COLLISIONS ---
+        bullets.forEach((b, bi) => {
+            swarm.forEach(e => {
+                if (!e.alive || e.y < 0) return;
+                if (b.x > e.x && b.x < e.x + e.size && b.y > e.y && b.y < e.y + e.size) {
+                    bullets.splice(bi, 1);
+                    e.hp--;
+                    if (e.hp <= 0) destroyEnemy(e);
+                    else {
+                        spawnParticlesAndSparks(b.x, b.y, '#fff', 5, 8);
+                        shakeAmount = 2;
+                    }
+                }
+            });
+        });
+
+        enemyBullets.forEach((b, bi) => {
+            if (b.x > player.x - player.w/2 && b.x < player.x + player.w/2 && b.y > player.y - player.h/2 && b.y < player.y + player.h/2) {
+                enemyBullets.splice(bi, 1);
+                playerHit();
+            }
+        });
+
+        if (swarm.filter(e => e.alive).length === 0 && particles.length === 0 && sparks.length === 0 && !isWarping) {
+            triggerWaveClear();
+        }
+
+        // Update FX
+        particles.forEach(p => p.update()); particles = particles.filter(p => p.life > 0);
+        sparks.forEach(s => s.update()); sparks = sparks.filter(s => s.life > 0);
+        shockwaves.forEach(s => s.update()); shockwaves = shockwaves.filter(s => s.life > 0);
+        floatingTexts.forEach(t => t.update()); floatingTexts = floatingTexts.filter(t => t.life > 0);
+        
+        if (shakeAmount > 0) shakeAmount *= 0.85;
+    }
+
+    function draw() {
+        ctx.save();
+        if (shakeAmount > 0.5) ctx.translate((Math.random() - 0.5) * shakeAmount, (Math.random() - 0.5) * shakeAmount);
+
+        // True Black Background 
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#000000'; 
+        ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+        // Draw Dynamic Scrolling Grid
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.strokeStyle = isWarping ? 'rgba(0, 255, 255, 0.15)' : 'rgba(0, 255, 255, 0.05)'; 
+        ctx.lineWidth = isWarping ? 2 : 1;
+        
+        for(let x=0; x<LOGICAL_WIDTH; x+=100) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, LOGICAL_HEIGHT); ctx.stroke(); }
+        for(let y = bgScrollY - 100; y < LOGICAL_HEIGHT; y+=100) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(LOGICAL_WIDTH, y); ctx.stroke(); }
+
+        // Draw Stars
+        ctx.fillStyle = '#ffffff';
+        stars.forEach(s => {
+            if (isWarping) {
+                ctx.globalAlpha = 0.5;
+                ctx.fillRect(s.x, s.y, s.size, s.size * 25); 
+            } else {
+                ctx.globalAlpha = s.speed / 1.5;
+                ctx.fillRect(s.x, s.y, s.size, s.size);
+            }
+        });
+        ctx.globalAlpha = 1.0;
+        ctx.globalCompositeOperation = 'source-over';
+
+        // Draw Swarm
+        swarm.forEach(e => {
+            if (!e.alive) return;
+            
+            ctx.save();
+            ctx.translate(e.x + e.size/2, e.y + e.size/2);
+            
+            // Random glitch offset if hit
+            if(e.color === '#fff') ctx.translate((Math.random()-0.5)*5, (Math.random()-0.5)*5);
+            
+            ctx.fillStyle = '#000'; 
+            ctx.shadowBlur = 20; ctx.shadowColor = e.color;
+            ctx.strokeStyle = e.color; ctx.lineWidth = 3;
+            
+            drawHex(ctx, 0, 0, e.size/2);
+            ctx.fill(); ctx.stroke();
+
+            if (e.isCore) {
+                ctx.fillStyle = '#fff';
+                ctx.beginPath(); ctx.arc(0, 0, (Math.sin(globalTime * 0.1)*4) + 12, 0, Math.PI*2);
+                ctx.fill();
+            } else if (e.hp > 1) {
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(-e.size*0.2, -e.size*0.2); ctx.lineTo(e.size*0.2, e.size*0.2);
+                ctx.moveTo(e.size*0.2, -e.size*0.2); ctx.lineTo(-e.size*0.2, e.size*0.2);
+                ctx.stroke();
+            }
+            
+            ctx.restore();
+        });
+
+        // Draw Player Dynamic Engine Trail
+        ctx.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < player.history.length; i++) {
+            let pt = player.history[i];
+            let opacity = i / player.history.length;
+            ctx.fillStyle = isOverclocked ? '#fefe33' : '#ff00ff';
+            ctx.globalAlpha = opacity * 0.5;
+            
+            ctx.save();
+            ctx.translate(pt.x, pt.y + player.h);
+            let trailBank = (pt.vx * 0.02);
+            trailBank = Math.max(-0.5, Math.min(0.5, trailBank));
+            ctx.rotate(trailBank);
+            
+            let trailWidth = (player.w/2) * opacity;
+            ctx.fillRect(-trailWidth/2, (player.history.length - i)*2, trailWidth, 10);
+            ctx.restore();
+        }
+        ctx.globalAlpha = 1.0;
+
+        // Draw Player Ship (Banking animation)
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.save();
+        ctx.translate(player.x, player.y);
+        
+        let bankAngle = (player.vx * 0.02);
+        bankAngle = Math.max(-0.5, Math.min(0.5, bankAngle));
+        ctx.rotate(bankAngle);
+
+        if (player.invuln > 0) {
+            // Holographic Invulnerability Shield
+            ctx.strokeStyle = '#00ffff'; ctx.lineWidth = 2;
+            ctx.shadowBlur = 10; ctx.shadowColor = '#00ffff';
+            ctx.globalAlpha = 0.5 + Math.sin(globalTime * 0.3) * 0.3;
+            ctx.beginPath(); ctx.arc(0, 0, player.w * 0.8, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(0, 0, player.w * 0.9, 0, Math.PI*2); ctx.stroke();
+            ctx.globalAlpha = 1.0;
+            if (Math.floor(globalTime / 5) % 2 === 0) ctx.globalAlpha = 0.4; // Ship blink
+        }
+
+        ctx.fillStyle = '#000'; ctx.strokeStyle = isOverclocked ? '#fefe33' : '#00ffff'; ctx.lineWidth = 3;
+        ctx.shadowBlur = 20; ctx.shadowColor = isOverclocked ? '#fefe33' : '#00ffff';
+        
+        // Sleek Starfighter
+        ctx.beginPath();
+        ctx.moveTo(0, -player.h); 
+        ctx.lineTo(player.w/2, player.h/2); 
+        ctx.lineTo(player.w/4, player.h/4); 
+        ctx.lineTo(-player.w/4, player.h/4); 
+        ctx.lineTo(-player.w/2, player.h/2); 
+        ctx.closePath();
+        ctx.fill(); ctx.stroke();
+        
+        ctx.fillStyle = '#fff'; 
+        ctx.beginPath(); ctx.ellipse(0, -player.h/3, 5, 12, 0, 0, Math.PI*2); ctx.fill();
+        
+        // Engine Core
+        ctx.fillStyle = isOverclocked ? '#fefe33' : '#00ffff'; 
+        ctx.fillRect(-player.w/4 + 2, player.h/4 + 2, (player.w/2) - 4, 10);
+
+        ctx.restore();
+        ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
+
+        // Draw Bullets (Glowing Lasers)
+        ctx.globalCompositeOperation = 'lighter';
+        bullets.forEach(b => {
+            ctx.strokeStyle = b.color; ctx.lineWidth = b.width;
+            ctx.shadowBlur = 20; ctx.shadowColor = b.color;
+            ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(b.x, b.y); ctx.lineTo(b.x - b.vx, b.y + b.length); ctx.stroke();
+        });
+        
+        enemyBullets.forEach(b => {
+            ctx.fillStyle = b.color; ctx.shadowBlur = 20; ctx.shadowColor = b.color;
+            ctx.beginPath(); ctx.arc(b.x, b.y, b.size, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(b.x, b.y, b.size*0.5, 0, Math.PI*2); ctx.fill();
+        });
+        ctx.shadowBlur = 0;
+
+        // Draw FX
+        particles.forEach(p => p.draw(ctx));
+        sparks.forEach(s => s.draw(ctx));
+        shockwaves.forEach(s => s.draw(ctx));
+        chips.forEach(c => c.draw(ctx));
+        
+        ctx.globalCompositeOperation = 'source-over';
+        floatingTexts.forEach(t => t.draw(ctx));
+
+        ctx.restore(); 
+    }
+
+    function drawHex(ctx, x, y, r) {
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+            ctx.lineTo(x + r * Math.cos(i * Math.PI / 3), y + r * Math.sin(i * Math.PI / 3));
+        }
+        ctx.closePath();
+    }
+
+    function gameLoop() {
+        if (!isPlaying) return;
+        update();
+        draw();
+        gameLoopId = requestAnimationFrame(gameLoop);
+    }
+</script>
+</body>
+</html>

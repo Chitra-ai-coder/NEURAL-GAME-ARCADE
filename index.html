@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHITRABHANU | NEURAL ARCADE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #030308;
+            --neon-blue: #00f2fe;
+            --neon-pink: #ff0055;
+            --neon-purple: #8a2be2;
+            --neon-green: #00ffcc;
+            --font-main: 'Orbitron', sans-serif;
+            --font-text: 'Rajdhani', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg);
+            color: white;
+            font-family: var(--font-text);
+            overflow-x: hidden;
+            cursor: none; 
+            /* Added smooth background glow */
+            background-image: radial-gradient(circle at 50% 0%, #0a0a1a 0%, var(--bg) 70%);
+        }
+
+        /* --- ZERO-LAG HARDWARE ACCELERATED CURSOR --- */
+        .cursor-dot {
+            position: fixed; top: 0; left: 0; width: 8px; height: 8px;
+            background: var(--neon-blue); border-radius: 50%;
+            pointer-events: none; z-index: 99999;
+            box-shadow: 0 0 15px var(--neon-blue), 0 0 30px var(--neon-blue);
+            will-change: transform; /* Forces GPU rendering for smoothness */
+        }
+        .cursor-ring {
+            position: fixed; top: 0; left: 0; width: 40px; height: 40px;
+            border: 2px solid rgba(0, 242, 254, 0.5); border-radius: 50%;
+            pointer-events: none; z-index: 99998;
+            transition: width 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                        height 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+                        border-color 0.3s, background-color 0.3s;
+            will-change: transform;
+        }
+
+        /* --- HYPER-FUTURISTIC BACKGROUND GRAPHICS --- */
+        .scanlines {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px; z-index: 9000; pointer-events: none; opacity: 0.5;
+            animation: scanline-drift 10s linear infinite;
+        }
+        @keyframes scanline-drift { 0% { background-position: 0 0; } 100% { background-position: 0 100vh; } }
+
+        .universe {
+            position: fixed; width: 100vw; height: 100vh; z-index: -5;
+            background: #030308; overflow: hidden;
+        }
+
+        /* Upgraded Ambient Glowing Orbs */
+        .orb { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.4; mix-blend-mode: screen; animation: orbDrift 20s infinite alternate cubic-bezier(0.4, 0, 0.2, 1); }
+        .orb-1 { width: 50vw; height: 50vw; background: var(--neon-blue); top: -15%; left: -10%; }
+        .orb-2 { width: 45vw; height: 45vw; background: var(--neon-pink); bottom: -10%; right: -10%; animation-duration: 25s; animation-direction: alternate-reverse;}
+        .orb-3 { width: 35vw; height: 35vw; background: var(--neon-purple); top: 30%; left: 35%; animation-duration: 18s; }
+
+        @keyframes orbDrift { 0% { transform: translate(0, 0) scale(1); } 100% { transform: translate(80px, 80px) scale(1.1); } }
+
+        /* Drifting Cyber Dust */
+        .cyber-dust { position: absolute; inset: 0; background-image: radial-gradient(rgba(0, 242, 254, 0.4) 1px, transparent 1px); background-size: 100px 100px; animation: dustDrift 40s linear infinite; opacity: 0.3; }
+        @keyframes dustDrift { 0% { background-position: 0 0; } 100% { background-position: 1000px 1000px; } }
+
+        /* Motherboard Circuit Grid */
+        .cyber-lines {
+            position: absolute; inset: 0;
+            background-image: 
+                linear-gradient(rgba(0, 242, 254, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 242, 254, 0.03) 1px, transparent 1px);
+            background-size: 100px 100px; z-index: -4;
+        }
+
+        /* Upgraded 3D Floor Grid with core pulse */
+        .grid {
+            position: absolute; width: 200%; height: 200%; bottom: -50%; left: -50%;
+            background-image: 
+                linear-gradient(rgba(0, 242, 254, 0.25) 2px, transparent 2px),
+                linear-gradient(90deg, rgba(0, 242, 254, 0.25) 2px, transparent 2px);
+            background-size: 60px 60px; transform: rotateX(75deg); transform-origin: center top;
+            animation: gridMove 4s linear infinite; z-index: -3;
+        }
+        .grid::after {
+            content: ''; position: absolute; inset: 0;
+            background: linear-gradient(to bottom, transparent 0%, var(--bg) 70%);
+        }
+        .grid::before {
+            content: ''; position: absolute; inset: 0;
+            background: radial-gradient(circle at top center, rgba(0, 242, 254, 0.15) 0%, transparent 50%);
+            animation: corePulse 3s infinite alternate;
+        }
+        @keyframes gridMove { 0% { transform: rotateX(75deg) translateY(0); } 100% { transform: rotateX(75deg) translateY(60px); } }
+        @keyframes corePulse { 0% { opacity: 0.3; } 100% { opacity: 1; } }
+
+        /* Ticker Tape */
+        .ticker-wrap {
+            position: fixed; top: 0; width: 100%; background: var(--neon-pink);
+            color: black; font-family: var(--font-main); font-weight: 900;
+            font-size: 10px; letter-spacing: 2px; padding: 3px 0; overflow: hidden; z-index: 8000;
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.4);
+        }
+        .ticker {
+            display: inline-block; white-space: nowrap; padding-left: 100%;
+            animation: ticker 25s linear infinite;
+        }
+        @keyframes ticker { 0% { transform: translate3d(0, 0, 0); } 100% { transform: translate3d(-100%, 0, 0); } }
+
+        /* Hexadecimal Noise */
+        .hex-bg {
+            position: fixed; right: 2%; top: 30%; font-family: monospace; font-size: 0.7rem;
+            color: var(--neon-blue); opacity: 0.15; line-height: 1.2; text-align: right; z-index: -1;
+            user-select: none; animation: hexPulse 4s infinite alternate;
+        }
+        @keyframes hexPulse { 0% { opacity: 0.1; } 100% { opacity: 0.25; text-shadow: 0 0 5px var(--neon-blue); } }
+
+        /* --- HERO SECTION --- */
+        .hero {
+            height: 100vh; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; text-align: center;
+            position: relative; overflow: hidden;
+        }
+
+        /* Animated HUD Corner Brackets */
+        .hud-bracket { position: absolute; width: 60px; height: 60px; border: 3px solid var(--neon-blue); opacity: 0.6; transition: 0.3s; }
+        .hud-tl { top: 8%; left: 5%; border-right: none; border-bottom: none; animation: bracketGlow 2s infinite alternate; }
+        .hud-tr { top: 8%; right: 5%; border-left: none; border-bottom: none; animation: bracketGlow 2s infinite alternate 0.5s; }
+        .hud-bl { bottom: 5%; left: 5%; border-right: none; border-top: none; animation: bracketGlow 2s infinite alternate 1s; }
+        .hud-br { bottom: 5%; right: 5%; border-left: none; border-top: none; animation: bracketGlow 2s infinite alternate 1.5s; }
+        @keyframes bracketGlow { 0% { opacity: 0.3; box-shadow: none; } 100% { opacity: 0.9; box-shadow: 0 0 15px inset var(--neon-blue); } }
+
+        /* Terminal Data Stream */
+        .data-stream {
+            position: absolute; left: 5%; top: 20%; font-family: monospace; color: var(--neon-pink); font-size: 0.8rem;
+            text-align: left; opacity: 0.8; letter-spacing: 2px; animation: textFlicker 0.1s infinite;
+        }
+        @keyframes textFlicker { 0%, 100% { opacity: 0.8; } 50% { opacity: 0.4; } }
+
+        /* Upgraded Typography Glitch */
+        .glitch-wrapper { position: relative; z-index: 10; }
+        .hero-title {
+            font-family: var(--font-main); font-size: clamp(4rem, 12vw, 8rem);
+            font-weight: 900; text-transform: uppercase; letter-spacing: 5px;
+            color: white; text-shadow: 0 0 20px rgba(0, 242, 254, 0.8), 0 0 40px rgba(255, 0, 85, 0.5);
+            position: relative;
+        }
+        .hero-title::before, .hero-title::after {
+            content: "NEURAL\A ARCADE"; white-space: pre-wrap; position: absolute;
+            top: 0; left: 0; right: 0; background: transparent; color: white;
+            overflow: hidden; clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+        }
+        .hero-title::before { left: 4px; text-shadow: -3px 0 var(--neon-pink), 3px 0 rgba(0,255,0,0.5); animation: glitch-anim-1 2.5s infinite linear alternate-reverse; }
+        .hero-title::after { left: -4px; text-shadow: -3px 0 var(--neon-blue), 3px 0 rgba(255,0,0,0.5); animation: glitch-anim-2 3s infinite linear alternate-reverse; }
+
+        @keyframes glitch-anim-1 { 0% { clip-path: inset(20% 0 80% 0); } 20% { clip-path: inset(60% 0 10% 0); } 40% { clip-path: inset(40% 0 50% 0); } 60% { clip-path: inset(80% 0 5% 0); } 80% { clip-path: inset(10% 0 70% 0); } 100% { clip-path: inset(30% 0 50% 0); } }
+        @keyframes glitch-anim-2 { 0% { clip-path: inset(10% 0 60% 0); } 20% { clip-path: inset(30% 0 20% 0); } 40% { clip-path: inset(70% 0 10% 0); } 60% { clip-path: inset(20% 0 50% 0); } 80% { clip-path: inset(50% 0 30% 0); } 100% { clip-path: inset(5% 0 80% 0); } }
+
+        .subtitle { font-size: 1.5rem; letter-spacing: 8px; color: #fff; margin-top: 10px; text-transform: uppercase; text-shadow: 0 0 10px rgba(255,255,255,0.5); z-index: 10;}
+        .subtitle span { color: var(--neon-pink); font-weight: 700; text-shadow: 0 0 15px var(--neon-pink); }
+
+        .scroll-indicator {
+            position: absolute; bottom: 40px; font-size: 1rem; letter-spacing: 4px;
+            color: var(--neon-blue); animation: bounce 2s infinite; display: flex; flex-direction: column; align-items: center; gap: 10px;
+        }
+        .scroll-indicator::after { content: ''; width: 2px; height: 30px; background: linear-gradient(to bottom, var(--neon-blue), transparent); }
+        @keyframes bounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); text-shadow: 0 0 10px var(--neon-blue); } 40% { transform: translateY(-15px); text-shadow: 0 0 20px var(--neon-blue); } 60% { transform: translateY(-7px); text-shadow: 0 0 15px var(--neon-blue); } }
+
+        /* --- CONTENT & POP-UP SCROLL ANIMATION (Untouched logic, upgraded CSS) --- */
+        .content-section { padding: 100px 20px; max-width: 1300px; margin: 0 auto; position: relative; z-index: 10; }
+
+        /* The pre-scroll state */
+        .reveal {
+            opacity: 0; 
+            transform: scale(0.8) translateY(100px) rotateX(-15deg); 
+            filter: blur(20px);
+            margin-bottom: 80px; 
+            perspective: 1200px; /* Enhanced perspective */
+            will-change: transform, opacity, filter;
+        }
+
+        /* The Spring-Loaded Pop-Up State */
+        .reveal.active {
+            animation: superPop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        @keyframes superPop {
+            0% { opacity: 0; transform: scale(0.8) translateY(100px) rotateX(-15deg); filter: blur(20px); }
+            60% { opacity: 1; transform: scale(1.05) translateY(-15px) rotateX(5deg); filter: blur(0px); }
+            100% { opacity: 1; transform: scale(1) translateY(0) rotateX(0deg); filter: blur(0px); }
+        }
+
+        /* Upgraded Game Card Glassmorphism */
+        .game-display {
+            display: flex; align-items: center; gap: 40px; background: rgba(20, 20, 30, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05); padding: 25px; border-radius: 24px;
+            backdrop-filter: blur(20px); text-decoration: none; color: white;
+            transition: border-color 0.3s, box-shadow 0.3s; position: relative; overflow: hidden; 
+            transform-style: preserve-3d; will-change: transform;
+        }
+
+        /* Holographic Sweep Animation */
+        .game-display::after {
+            content: ""; position: absolute; top: -150%; left: -50%; width: 50%; height: 300%;
+            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.15) 50%, rgba(255,255,255,0) 100%);
+            transform: rotate(35deg); transition: 0.8s cubic-bezier(0.25, 0.8, 0.25, 1); opacity: 0; pointer-events: none; z-index: 100;
+        }
+        .game-display:hover::after { left: 150%; opacity: 1; transition: 0.8s cubic-bezier(0.25, 0.8, 0.25, 1); }
+
+        .game-display:hover { border-color: var(--neon-pink); box-shadow: 0 15px 50px rgba(255, 0, 85, 0.2), inset 0 0 30px rgba(255, 0, 85, 0.1); }
+        .game-display.blue-theme:hover { border-color: var(--neon-blue); box-shadow: 0 15px 50px rgba(0, 242, 254, 0.2), inset 0 0 30px rgba(0, 242, 254, 0.1); }
+        .game-display.purple-theme:hover { border-color: var(--neon-purple); box-shadow: 0 15px 50px rgba(138, 43, 226, 0.2), inset 0 0 30px rgba(138, 43, 226, 0.1); }
+
+        .game-thumb {
+            width: 380px; height: 230px; border-radius: 16px; object-fit: cover;
+            background: #0f0f15; border: 1px solid rgba(255,255,255,0.05);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8); filter: grayscale(80%) contrast(1.2) sepia(10%) hue-rotate(180deg);
+            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1); transform: translateZ(50px);
+        }
+        .game-display:hover .game-thumb { filter: grayscale(0%) contrast(1.1) sepia(0%) hue-rotate(0deg); transform: translateZ(70px) scale(1.05); box-shadow: 0 20px 50px rgba(0,0,0,0.9); border-color: rgba(255,255,255,0.2); }
+
+        .game-info { flex-grow: 1; transform: translateZ(40px); }
+        .game-info h2 { font-family: var(--font-main); font-size: 2.8rem; color: white; margin-bottom: 12px; text-shadow: 0 0 10px rgba(255,255,255,0.3); transition: 0.3s; }
+
+        .game-display.pink-theme:hover .game-info h2 { color: var(--neon-pink); text-shadow: 0 0 20px rgba(255,0,85,0.5); }
+        .game-display.blue-theme:hover .game-info h2 { color: var(--neon-blue); text-shadow: 0 0 20px rgba(0,242,254,0.5); }
+        .game-display.purple-theme:hover .game-info h2 { color: var(--neon-purple); text-shadow: 0 0 20px rgba(138,43,226,0.5); }
+
+        .game-info p { font-size: 1.25rem; color: #b0b0c0; line-height: 1.6; margin-bottom: 30px; font-weight: 500; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+
+        /* Upgraded Play Tag */
+        .play-tag {
+            display: inline-flex; align-items: center; gap: 10px; padding: 14px 35px;
+            background: rgba(0,0,0,0.6); border: 2px solid var(--neon-pink); color: var(--neon-pink);
+            font-family: var(--font-main); font-weight: 900; letter-spacing: 3px;
+            border-radius: 4px; transition: all 0.3s ease; text-transform: uppercase;
+            position: relative; overflow: hidden;
+            /* Angled sci-fi cut */
+            clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+        }
+        .game-display.blue-theme .play-tag { border-color: var(--neon-blue); color: var(--neon-blue); }
+        .game-display.purple-theme .play-tag { border-color: var(--neon-purple); color: var(--neon-purple); }
+
+        .game-display:hover .play-tag { background: var(--neon-pink); color: #000; box-shadow: 0 0 30px var(--neon-pink); transform: scale(1.05); }
+        .game-display.blue-theme:hover .play-tag { background: var(--neon-blue); color: #000; box-shadow: 0 0 30px var(--neon-blue); }
+        .game-display.purple-theme:hover .play-tag { background: var(--neon-purple); color: #fff; box-shadow: 0 0 30px var(--neon-purple); }
+
+        /* Moving chevron inside play button */
+        .play-tag span { transition: transform 0.3s; }
+        .game-display:hover .play-tag span { transform: translateX(8px); }
+
+        @media (max-width: 900px) {
+            .game-display { flex-direction: column; text-align: center; padding: 30px; }
+            .game-thumb { width: 100%; height: auto; aspect-ratio: 16/9; transform: translateZ(20px); }
+            .game-display:hover .game-thumb { transform: translateZ(30px) scale(1.02); }
+            .cursor-dot, .cursor-ring { display: none; } 
+            .hud-bracket, .data-stream, .ticker-wrap, .hex-bg { display: none; } 
+            body { cursor: auto; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ticker-wrap"><div class="ticker">// SYS.OP.ONLINE // NO ANOMALIES DETECTED // SERVER LOAD 42% // NEURAL LINK ESTABLISHED // AWAITING USER INPUT // SECURITY PROTOCOL ALPHA ACTIVE //</div></div>
+    <div class="scanlines"></div>
+    <div class="universe">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+        <div class="cyber-dust"></div>
+        <div class="cyber-lines"></div>
+        <div class="grid"></div>
+    </div>
+
+    <div class="hex-bg">
+        0x0A9F 0x11B2<br>0xCC44 0x88D1<br>0xFF00 0x00FF<br>0x4A2C 0x9B1E<br>
+        0x77DD 0x1122<br>0x99AA 0xBBCC<br>0x0110 0x1001<br>0xDEAD 0xBEEF
+    </div>
+
+    <div class="cursor-dot"></div>
+    <div class="cursor-ring"></div>
+
+    <section class="hero">
+        <div class="hud-bracket hud-tl"></div>
+        <div class="hud-bracket hud-tr"></div>
+        <div class="hud-bracket hud-bl"></div>
+        <div class="hud-bracket hud-br"></div>
+
+        <div class="data-stream" id="data-stream">
+            SYS.INIT() <br> LOAD_MEM_BANKS... OK <br> CONNECTING...
+        </div>
+
+        <div class="glitch-wrapper">
+            <h1 class="hero-title">NEURAL<br>ARCADE</h1>
+        </div>
+        <p class="subtitle">SYS_ARCHITECT: <span>CHITRABHANU HAZRA</span></p>
+        <div class="scroll-indicator">INITIALIZE UPLINK</div>
+    </section>
+
+    <div class="content-section">
+
+        <div class="reveal">
+            <a href="game/tic-tac-toe/index.html" class="game-display pink-theme">
+                <img src="thumbnails/tictactow.jpeg" alt="Tic Tac Toe" class="game-thumb">
+                <div class="game-info">
+                    <h2>01. TIC TAC TOE</h2>
+                    <p>Classical logic simulation. Defeat the algorithm in a high-stakes 3x3 grid combat arena. Predict their moves.</p>
+                    <div class="play-tag">LAUNCH_SESSION <span style="font-size: 1.2rem;">&#8594;</span></div>
+                </div>
+            </a>
+        </div>
+
+        <div class="reveal">
+            <a href="game/rps/index.html" class="game-display blue-theme">
+                <img src="thumbnails/rpc.jpeg" alt="RPS" class="game-thumb" >
+                <div class="game-info">
+                    <h2>02. NEURAL BATTLE</h2>
+                    <p>Reflex and probability testing module. High-speed predictive decision making required to survive.</p>
+                    <div class="play-tag">LAUNCH_SESSION <span style="font-size: 1.2rem;">&#8594;</span></div>
+                </div>
+            </a>
+        </div>
+
+        <div class="reveal">
+            <a href="game/brick-breaker/index.html" class="game-display purple-theme">
+                <img src="thumbnails/BRIKBREAKER.jpeg" alt="Brick Breaker" class="game-thumb" >
+                <div class="game-info">
+                    <h2>03. BRICK BREAKER</h2>
+                    <p>Kinetic physics-based destruction interface. Keep the energy projectile active at all costs to breach the wall.</p>
+                    <div class="play-tag">LAUNCH_SESSION <span style="font-size: 1.2rem;">&#8594;</span></div>
+                </div>
+            </a>
+        </div>
+
+        <div class="reveal">
+            <a href="game/snake/index.html" class="game-display pink-theme">
+                <img src="thumbnails/snake.jpeg" alt="Snake" class="game-thumb" >
+                <div class="game-info">
+                    <h2>04. SNAKE PROTOCOL</h2>
+                    <p>Data consumption simulator. Navigate the mainframe grid and expand your length without causing a fatal collision.</p>
+                    <div class="play-tag">LAUNCH_SESSION <span style="font-size: 1.2rem;">&#8594;</span></div>
+                </div>
+            </a>
+        </div>
+
+        <div class="reveal">
+           <a href="game/ball game /index.html" class="game-display blue-theme">
+             <img src="thumbnails/np.jpeg" alt="Neural Pong" class="game-thumb" >
+             <div class="game-info">
+                 <h2>05. NEURAL PONG</h2>
+                 <p>Sub-atomic physics battle. Deflect the unstable energy sphere past enemy lines to breach the AI core.</p>
+                 <div class="play-tag">LAUNCH_SESSION <span style="font-size: 1.2rem;">&#8594;</span></div>
+             </div>
+             </a>
+         </div>
+
+         <div class="reveal">
+            <a href="game/nural match/index.html" class="game-display purple-theme">
+                <img src="thumbnails/neuralmatch.jpeg" alt="Nural Match" class="game-thumb" >
+                <div class="game-info">
+                    <h2>06. NEURAL MATCH</h2>
+                    <p>Cognitive memory matrix. Locate the matching cryptographic symbols before the system traces you.</p>
+                    <div class="play-tag">LAUNCH_SESSION <span style="font-size: 1.2rem;">&#8594;</span></div>
+                </div>
+            </a>
+        </div>
+
+        <div class="reveal">
+            <a href="game/synapse/index.html" class="game-display pink-theme">
+                <img src="thumbnails/synapse.jpeg" alt="synapse" class="game-thumb" >
+                <div class="game-info">
+                    <h2>07. SYNAPSE SEQUENCE</h2>
+                    <p>Cognitive pattern recognition. Memorize and repeat the rapidly escalating neural light sequence before your synapses overload.</p>   
+                    <div class="play-tag">LAUNCH_SESSION <span style="font-size: 1.2rem;">&#8594;</span></div>
+                </div>
+            </a>
+        </div>
+
+        <div class="reveal">
+            <a href="game/logic-bomb/index.html" class="game-display blue-theme">
+                <img src="thumbnails/logicbomb.jpeg" alt="Logic Bomb" class="game-thumb" >
+                <div class="game-info">
+                    <h2>08. LOGIC BOMB</h2>
+                    <p>Tactical decryption protocol. Analyze numerical data to locate and quarantine hidden logic bombs within the mainframe grid.</p>
+                    <div class="play-tag">LAUNCH_SESSION <span style="font-size: 1.2rem;">&#8594;</span></div>
+                </div>
+            </a>
+        </div>
+
+         <div class="reveal">
+            <a href="game/zip_drive/index.html" class="game-display purple-theme">
+                <img src="thumbnails/zipdrive.png" alt="Zip Drive" class="game-thumb">
+                <div class="game-info">
+                    <h2>09. ZIP DRIVE</h2>
+                    <p>Hyper-kinetic gravity inversion protocol. Zip between the floor and ceiling at extreme velocities to dodge the plasma firewall pillars.</p>
+                    <div class="play-tag">LAUNCH_SESSION <span style="font-size: 1.2rem;">&#8594;</span></div>
+                </div>
+            </a>
+        </div>
+
+         <div class="reveal">
+            <a href="game/astro-drift/index.html" class="game-display pink-theme">
+                <img src="thumbnails/astrodrift.png" alt="Astro-Drift" class="game-thumb" >
+                <div class="game-info">
+                    <h2>10. ASTRO-DRIFT</h2>
+                    <p>Newtonian combat protocol. Master zero-gravity drifting to eradicate waves of geometric data viruses that shatter upon impact.</p>
+                    <div class="play-tag">LAUNCH_SESSION <span style="font-size: 1.2rem;">&#8594;</span></div>
+                </div>
+            </a>
+        </div>
+
+         <div class="reveal">
+            <a href="game/neon-swarm/index.html" class="game-display blue-theme">
+                <img src="thumbnails/neon-swarm.png" alt="Neon Swarm" class="game-thumb">
+                <div class="game-info">
+                    <h2>11. NEON SWARM</h2>
+                    <p>Grid-Breaker Combat Protocol. Purge descending waves of alien algorithms. Trigger devastating neon chain reactions to shatter the grid formation.</p>
+                    <div class="play-tag">LAUNCH_SESSION <span style="font-size: 1.2rem;">&#8594;</span></div>
+                </div>
+            </a>
+        </div>
+        <div class="reveal">
+            <a href="game/cpu-siege/index.html" class="game-display purple-theme">
+                <img src="thumbnails/gamesieg.png" alt="CPU Siege" class="game-thumb">
+                <div class="game-info">
+                    <h2>12. CPU SIEGE</h2>
+                    <p>360-degree core defense protocol. Launch EMP payloads, harvest scattered RAM fragments, and defend the central neural chip from evolving malware strains.</p>
+                    <div class="play-tag">LAUNCH_SESSION <span style="font-size: 1.2rem;">&#8594;</span></div>
+                </div>
+            </a>
+        </div>
+        <div class="reveal">
+            <a href="game/ludo/index.html" class="game-display pink-theme">
+                <img src="thumbnails/ludo.png" alt="Neon Ludo" class="game-thumb">
+                <div class="game-info">
+                    <h2>13. NEON LUDO</h2>
+                    <p>Tactical pathfinder protocol. Engage in 1v1 battles or 4-player chaos. Navigate the mainframe grid, eliminate enemy data packets, and secure your payload to the central core.</p></p>
+                    <div class="play-tag">LAUNCH_SESSION <span style="font-size: 1.2rem;">&#8594;</span></div>
+                </div>
+            </a>
+        </div>
+        <div class="reveal">
+            <a href="game/neon-chess/index.html" class="game-display blue-theme">
+                <img src="thumbnails/neonchess.png" alt="System Chess" class="game-thumb" onerror="this.src='https://images.unsplash.com/photo-1529699211952-734e80c4d42b?q=80&w=1000&auto=format&fit=crop'">
+                <div class="game-info">
+                    <h2>14. SYSTEM CHESS</h2>
+                    <p>Assassination protocol active. Engage in local 1v1 combat or challenge the mainframe AI across three tactical difficulty tiers. Shatter enemy defenses and neutralize the Core.</p>
+                    <div class="play-tag">LAUNCH_SESSION <span style="font-size: 1.2rem;">&#8594;</span></div>
+                </div>
+            </a>
+        </div>
+
+    </div>
+
+    <script>
+        // --- UPGRADED ZERO-LAG CURSOR LOGIC ---
+        // Replaced old animate() method with high-performance requestAnimationFrame Lerp
+        const dot = document.querySelector('.cursor-dot');
+        const ring = document.querySelector('.cursor-ring');
+        
+        let mouseX = window.innerWidth / 2;
+        let mouseY = window.innerHeight / 2;
+        let ringX = mouseX;
+        let ringY = mouseY;
+
+        // Only record position on mousemove
+        window.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+        });
+
+        // The high-performance render loop
+        function renderCursor() {
+            // Snap the dot instantly using GPU-accelerated transform
+            dot.style.transform = `translate3d(calc(${mouseX}px - 50%), calc(${mouseY}px - 50%), 0)`;
+            
+            // Smoothly interpolate the ring to trail behind
+            ringX += (mouseX - ringX) * 0.15;
+            ringY += (mouseY - ringY) * 0.15;
+            ring.style.transform = `translate3d(calc(${ringX}px - 50%), calc(${ringY}px - 50%), 0)`;
+            
+            requestAnimationFrame(renderCursor);
+        }
+        requestAnimationFrame(renderCursor); // Start the loop
+
+        // Cursor Hover logic
+        document.querySelectorAll('a').forEach(link => {
+            link.addEventListener('mouseenter', () => {
+                let color = 'rgba(0, 242, 254, 0.2)'; // default blue
+                if(link.classList.contains('pink-theme')) color = 'rgba(255, 0, 85, 0.2)';
+                if(link.classList.contains('purple-theme')) color = 'rgba(138, 43, 226, 0.2)';
+
+                ring.style.width = '70px'; 
+                ring.style.height = '70px';
+                ring.style.backgroundColor = color;
+            });
+            link.addEventListener('mouseleave', () => {
+                ring.style.width = '40px'; 
+                ring.style.height = '40px';
+                ring.style.backgroundColor = 'transparent';
+            });
+        });
+
+        // --- SPRING-LOADED POP-UP SCROLL REVEAL (Untouched from original) ---
+        function reveal() {
+            var reveals = document.querySelectorAll(".reveal");
+            for (var i = 0; i < reveals.length; i++) {
+                var windowHeight = window.innerHeight;
+                var elementTop = reveals[i].getBoundingClientRect().top;
+                var elementVisible = 50; 
+                
+                if (elementTop < windowHeight - elementVisible) {
+                    reveals[i].classList.add("active");
+                }
+            }
+        }
+        window.addEventListener("scroll", reveal);
+        reveal(); 
+
+        // --- 3D VANILLA JS TILT EFFECT (Untouched from original) ---
+        const cards = document.querySelectorAll('.game-display');
+        
+        cards.forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                if(window.innerWidth < 900) return;
+
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top; 
+                
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                const rotateX = ((y - centerY) / centerY) * -12; // Slightly boosted max rotation
+                const rotateY = ((x - centerX) / centerX) * 12;
+                
+                card.style.transform = `perspective(1200px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.04, 1.04, 1.04)`;
+            });
+            
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = `perspective(1200px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+            });
+        });
+
+        // --- DYNAMIC TERMINAL STREAM (Untouched from original) ---
+        const stream = document.getElementById('data-stream');
+        const hexCodes = ["0x0A9F", "0xFF00", "0x11B2", "0xDEAD", "0xBEEF", "0xCC44"];
+        setInterval(() => {
+            const randomHex = hexCodes[Math.floor(Math.random() * hexCodes.length)];
+            const ping = Math.floor(Math.random() * 30 + 10);
+            stream.innerHTML = `SYS.INIT() <br> LOAD_MEM_BANKS... OK <br> CONNECTING_USER... OK <br> STATUS: ONLINE <br> PING: ${ping}ms <br> OVERRIDE: ${randomHex}`;
+        }, 1500);
+    </script>
+
+</body>
+</html>

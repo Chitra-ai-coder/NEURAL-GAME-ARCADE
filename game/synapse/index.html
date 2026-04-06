@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SYNAPSE SEQUENCE | NEURAL ARCADE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-deep: #030305;
+            --neon-blue: #00f2fe;
+            --neon-pink: #ff0055;
+            --neon-green: #0aff99;
+            --neon-yellow: #fefe33;
+            --font-main: 'Orbitron', sans-serif;
+            --font-sub: 'Rajdhani', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: crosshair; }
+
+        body {
+            background-color: var(--bg-deep); color: white;
+            font-family: var(--font-sub); height: 100vh; display: flex;
+            align-items: center; justify-content: center; overflow: hidden;
+            perspective: 1200px;
+        }
+
+        /* --- HYPER-ADVANCED BACKGROUND GRAFT --- */
+        
+        /* 1. The Dynamic Neural Network Canvas */
+        #neural-bg {
+            position: fixed; inset: 0; width: 100vw; height: 100vh;
+            z-index: -4; opacity: 0.6; pointer-events: none;
+        }
+
+        /* 2. The 3D Cyber Floor Grid */
+        .cyber-grid {
+            position: absolute; inset: -50%; z-index: -3;
+            background-image: 
+                linear-gradient(rgba(0, 242, 254, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 242, 254, 0.05) 1px, transparent 1px);
+            background-size: 80px 80px; transform: rotateX(70deg) translateY(-50px);
+            animation: gridPan 10s linear infinite;
+        }
+        @keyframes gridPan { from { background-position: 0 0; } to { background-position: 0 80px; } }
+
+        /* 3. Central Pulse Reactor */
+        .reactor-core {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 60vw; height: 60vw; border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,255,255,0.02) 0%, transparent 60%);
+            z-index: -2; filter: blur(50px); transition: background 0.3s ease;
+        }
+
+        /* 4. Ambient Floating Orbs */
+        .ambient-orb {
+            position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.2;
+            z-index: -3; animation: orbDrift 20s infinite alternate;
+        }
+        .orb-1 { width: 40vw; height: 40vw; background: var(--neon-blue); top: -10%; left: -10%; }
+        .orb-2 { width: 30vw; height: 30vw; background: var(--neon-pink); bottom: -10%; right: -10%; animation-duration: 25s; }
+
+        @keyframes orbDrift { 0% { transform: translate(0, 0); } 100% { transform: translate(100px, 100px); } }
+
+        /* 5. Scanlines & Vignette Overlay */
+        .scanlines {
+            position: fixed; inset: 0; z-index: 999; pointer-events: none;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%); background-size: 100% 4px;
+        }
+        .vignette {
+            position: fixed; inset: 0; z-index: 998; pointer-events: none;
+            background: radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.95) 100%);
+        }
+
+        /* --- CUSTOM CURSOR --- */
+        .cursor-dot { position: fixed; width: 6px; height: 6px; background: #fff; border-radius: 50%; pointer-events: none; z-index: 10000; transform: translate(-50%, -50%); box-shadow: 0 0 10px #fff; }
+        .cursor-ring { position: fixed; width: 30px; height: 30px; border: 2px solid rgba(0, 242, 254, 0.5); border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%, -50%); transition: width 0.2s, height 0.2s, border-color 0.2s; }
+
+        /* --- HUD --- */
+        .hud {
+            position: absolute; top: 40px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 40px; z-index: 10;
+        }
+        .stat-box {
+            background: rgba(5, 5, 10, 0.8); border: 1px solid rgba(0, 242, 254, 0.3);
+            padding: 10px 40px; text-align: center; border-radius: 12px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.9), inset 0 0 15px rgba(0, 242, 254, 0.1); 
+            backdrop-filter: blur(15px);
+        }
+        .stat-label { font-size: 0.8rem; color: var(--neon-blue); letter-spacing: 4px; font-weight: 700; display: block; margin-bottom: 5px; opacity: 0.8; }
+        .stat-value { font-family: var(--font-main); font-size: 2.8rem; color: #fff; font-weight: 900; text-shadow: 0 0 15px rgba(255,255,255,0.3); }
+        .highlight { color: var(--neon-pink); text-shadow: 0 0 20px var(--neon-pink); }
+
+        /* --- MAIN GAME ARENA --- */
+        .arena {
+            position: relative; width: 520px; height: 520px;
+            display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 25px;
+            transform: rotateX(15deg); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 5;
+        }
+
+        /* Central Status Hub */
+        .center-hub {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 130px; height: 130px; background: #05050a; border: 4px solid #222;
+            border-radius: 50%; z-index: 10; display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 0 40px rgba(0,0,0,1), inset 0 0 30px rgba(0,0,0,1);
+            text-align: center; font-family: var(--font-main); font-size: 0.85rem; font-weight: 900; letter-spacing: 3px; color: #666;
+            transition: all 0.3s;
+        }
+
+        /* The Pads */
+        .pad {
+            border-radius: 20px; background: rgba(15, 15, 20, 0.85);
+            border: 2px solid rgba(255,255,255,0.05); box-shadow: 0 20px 40px rgba(0,0,0,0.9), inset 0 0 25px rgba(0,0,0,0.7);
+            transition: all 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative; overflow: hidden; cursor: crosshair;
+        }
+        
+        .pad::before {
+            content: ''; position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(255,255,255,0.15) 0%, transparent 70%); opacity: 0; transition: opacity 0.2s;
+        }
+
+        /* Pad Colors */
+        #pad-0 { border-bottom: 6px solid rgba(0, 242, 254, 0.4); } /* Blue */
+        #pad-1 { border-bottom: 6px solid rgba(255, 0, 85, 0.4); }  /* Pink */
+        #pad-2 { border-bottom: 6px solid rgba(10, 255, 153, 0.4); } /* Green */
+        #pad-3 { border-bottom: 6px solid rgba(254, 254, 51, 0.4); } /* Yellow */
+
+        /* Pad Active/Lighting States */
+        .pad.active-0 { background: var(--neon-blue); box-shadow: 0 0 60px var(--neon-blue), inset 0 0 40px #fff; border-color: #fff; transform: scale(0.92) translateY(8px); }
+        .pad.active-1 { background: var(--neon-pink); box-shadow: 0 0 60px var(--neon-pink), inset 0 0 40px #fff; border-color: #fff; transform: scale(0.92) translateY(8px); }
+        .pad.active-2 { background: var(--neon-green); box-shadow: 0 0 60px var(--neon-green), inset 0 0 40px #fff; border-color: #fff; transform: scale(0.92) translateY(8px); }
+        .pad.active-3 { background: var(--neon-yellow); box-shadow: 0 0 60px var(--neon-yellow), inset 0 0 40px #fff; border-color: #fff; transform: scale(0.92) translateY(8px); }
+
+        .pad:hover::before { opacity: 1; }
+        
+        /* Disable clicks when it's the computer's turn */
+        .locked .pad { pointer-events: none; }
+
+        /* --- OVERLAYS --- */
+        .overlay {
+            position: fixed; inset: 0; background: rgba(3, 3, 5, 0.9); backdrop-filter: blur(20px);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 50; transition: opacity 0.4s;
+        }
+        .hidden { opacity: 0; pointer-events: none; z-index: -1; }
+
+        .title-glitch {
+            font-family: var(--font-main); font-size: 6rem; font-weight: 900; letter-spacing: 15px; margin-bottom: 20px;
+            text-shadow: 0 10px 40px #000, -4px -4px var(--neon-blue), 4px 4px var(--neon-pink); text-transform: uppercase; text-align: center;
+        }
+        .subtitle { font-size: 1.5rem; color: #ccc; letter-spacing: 10px; margin-bottom: 60px; text-transform: uppercase; text-shadow: 0 0 10px rgba(255,255,255,0.3);}
+
+        .cyber-btn {
+            background: rgba(0,0,0,0.8); border: 2px solid var(--neon-green); color: var(--neon-green);
+            padding: 18px 60px; font-family: var(--font-main); font-size: 1.4rem; font-weight: 900;
+            letter-spacing: 6px; cursor: pointer; transition: 0.3s; text-transform: uppercase;
+            box-shadow: 0 0 20px rgba(10, 255, 153, 0.2), inset 0 0 10px rgba(10, 255, 153, 0.1); border-radius: 6px;
+        }
+        .cyber-btn:hover { background: var(--neon-green); color: #000; box-shadow: 0 0 40px var(--neon-green); transform: translateY(-3px) scale(1.05); }
+        .btn-red { border-color: var(--neon-pink); color: var(--neon-pink); box-shadow: 0 0 20px rgba(255, 0, 85, 0.2); }
+        .btn-red:hover { background: var(--neon-pink); color: #fff; box-shadow: 0 0 40px var(--neon-pink); }
+
+        /* Animations */
+        .shake { animation: shakeError 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shakeError { 10%, 90% { transform: rotateX(15deg) translate3d(-8px, 0, 0); } 20%, 80% { transform: rotateX(15deg) translate3d(12px, 0, 0); } 30%, 50%, 70% { transform: rotateX(15deg) translate3d(-18px, 0, 0); } 40%, 60% { transform: rotateX(15deg) translate3d(18px, 0, 0); } }
+
+        .flash-red { animation: bgFlashRed 0.6s ease-out; }
+        @keyframes bgFlashRed { 0% { background-color: rgba(255, 0, 85, 0.6); } 100% { background-color: var(--bg-deep); } }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="neural-bg"></canvas>
+
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="cyber-grid"></div>
+    <div class="reactor-core" id="reactor"></div>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+
+    <div class="cursor-dot"></div>
+    <div class="cursor-ring"></div>
+
+    <div class="hud">
+        <div class="stat-box">
+            <span class="stat-label">SEQUENCE_LENGTH</span>
+            <span class="stat-value highlight" id="score">00</span>
+        </div>
+        <div class="stat-box">
+            <span class="stat-label">PEAK_SYNAPSE</span>
+            <span class="stat-value" id="highscore">00</span>
+        </div>
+    </div>
+
+    <div class="arena locked" id="arena">
+        <div class="pad" id="pad-0" onclick="handleInput(0)"></div>
+        <div class="pad" id="pad-1" onclick="handleInput(1)"></div>
+        <div class="pad" id="pad-2" onclick="handleInput(2)"></div>
+        <div class="pad" id="pad-3" onclick="handleInput(3)"></div>
+        
+        <div class="center-hub" id="hub">STANDBY</div>
+    </div>
+
+    <div class="overlay" id="start-menu">
+        <h1 class="title-glitch">SYNAPSE<br>SEQUENCE</h1>
+        <div class="subtitle">AUDITORY/VISUAL MEMORY PROTOCOL</div>
+        <button class="cyber-btn" onclick="startGame()">INITIATE LINK</button>
+    </div>
+
+    <div class="overlay hidden" id="game-over">
+        <h1 class="title-glitch" style="color: var(--neon-pink); text-shadow: 0 0 40px var(--neon-pink);">SYNAPSE SEVERED</h1>
+        <div class="subtitle" id="final-msg" style="color: #fff;">SEQUENCE FAILED AT LEVEL 0</div>
+        <button class="cyber-btn btn-red" onclick="startGame()"><i data-lucide="power" style="display:inline; vertical-align:middle; margin-right:10px;"></i> REBOOT SEQUENCE</button>
+    </div>
+
+<script>
+    lucide.createIcons();
+
+    // --- NEURAL NETWORK BACKGROUND CANVAS LOGIC ---
+    const bgCanvas = document.getElementById('neural-bg');
+    const bgCtx = bgCanvas.getContext('2d');
+    let bgNodes = [];
+    const MAX_NODES = 60; // Adjust for density
+    const CONNECTION_DISTANCE = 150;
+
+    function resizeCanvas() {
+        bgCanvas.width = window.innerWidth;
+        bgCanvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class SynapseNode {
+        constructor() {
+            this.x = Math.random() * bgCanvas.width;
+            this.y = Math.random() * bgCanvas.height;
+            this.vx = (Math.random() - 0.5) * 0.8;
+            this.vy = (Math.random() - 0.5) * 0.8;
+            this.radius = Math.random() * 2 + 1;
+            // Mix of Cyan and Pink
+            this.color = Math.random() > 0.5 ? '#00f2fe' : '#ff0055'; 
+        }
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+            // Bounce off walls smoothly
+            if (this.x < 0 || this.x > bgCanvas.width) this.vx *= -1;
+            if (this.y < 0 || this.y > bgCanvas.height) this.vy *= -1;
+        }
+        draw() {
+            bgCtx.beginPath();
+            bgCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            bgCtx.fillStyle = this.color;
+            bgCtx.shadowBlur = 10;
+            bgCtx.shadowColor = this.color;
+            bgCtx.fill();
+            bgCtx.shadowBlur = 0; // Reset for lines
+        }
+    }
+
+    for (let i = 0; i < MAX_NODES; i++) bgNodes.push(new SynapseNode());
+
+    function animateNeuralBg() {
+        bgCtx.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+        
+        // Draw lines between close nodes
+        for (let i = 0; i < bgNodes.length; i++) {
+            for (let j = i + 1; j < bgNodes.length; j++) {
+                let dx = bgNodes[i].x - bgNodes[j].x;
+                let dy = bgNodes[i].y - bgNodes[j].y;
+                let distance = Math.sqrt(dx * dx + dy * dy);
+
+                if (distance < CONNECTION_DISTANCE) {
+                    bgCtx.beginPath();
+                    bgCtx.moveTo(bgNodes[i].x, bgNodes[i].y);
+                    bgCtx.lineTo(bgNodes[j].x, bgNodes[j].y);
+                    
+                    // Opacity fades as distance increases
+                    let opacity = 1 - (distance / CONNECTION_DISTANCE);
+                    
+                    // Create gradient line between the two node colors
+                    let grad = bgCtx.createLinearGradient(bgNodes[i].x, bgNodes[i].y, bgNodes[j].x, bgNodes[j].y);
+                    grad.addColorStop(0, `${bgNodes[i].color}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}`);
+                    grad.addColorStop(1, `${bgNodes[j].color}${Math.floor(opacity * 255).toString(16).padStart(2, '0')}`);
+                    
+                    bgCtx.strokeStyle = grad;
+                    bgCtx.lineWidth = 1.5;
+                    bgCtx.stroke();
+                }
+            }
+            bgNodes[i].update();
+            bgNodes[i].draw();
+        }
+        requestAnimationFrame(animateNeuralBg);
+    }
+    animateNeuralBg(); // Start the background loop
+
+    // --- CUSTOM CURSOR ---
+    const dot = document.querySelector('.cursor-dot');
+    const ring = document.querySelector('.cursor-ring');
+    window.addEventListener('mousemove', (e) => {
+        dot.style.left = `${e.clientX}px`; dot.style.top = `${e.clientY}px`;
+        ring.animate({ left: `${e.clientX}px`, top: `${e.clientY}px` }, { duration: 200, fill: "forwards" });
+    });
+
+    // Interactive Hover for Pads & Buttons
+    document.querySelectorAll('.pad, button').forEach(el => {
+        el.addEventListener('mouseenter', () => { ring.style.width = '55px'; ring.style.height = '55px'; ring.style.borderColor = 'var(--neon-green)'; dot.style.background = 'var(--neon-green)'; });
+        el.addEventListener('mouseleave', () => { ring.style.width = '30px'; ring.style.height = '30px'; ring.style.borderColor = 'rgba(0, 242, 254, 0.5)'; dot.style.background = '#fff'; });
+    });
+
+    // --- CORE GAME LOGIC ---
+    let sequence = [];
+    let userStep = 0;
+    let level = 0;
+    let highScore = localStorage.getItem('synapseHighScore') || 0;
+    let baseSpeed = 600; 
+    
+    // DOM Elements
+    const arena = document.getElementById('arena');
+    const hub = document.getElementById('hub');
+    const reactor = document.getElementById('reactor');
+    const scoreEl = document.getElementById('score');
+    const highscoreEl = document.getElementById('highscore');
+    const startMenu = document.getElementById('start-menu');
+    const gameOverMenu = document.getElementById('game-over');
+    
+    highscoreEl.innerText = highScore.toString().padStart(2, '0');
+
+    const colors = [
+        'rgba(0, 242, 254, 0.25)',  // 0: Blue
+        'rgba(255, 0, 85, 0.25)',   // 1: Pink
+        'rgba(10, 255, 153, 0.25)', // 2: Green
+        'rgba(254, 254, 51, 0.25)'  // 3: Yellow
+    ];
+
+    function startGame() {
+        startMenu.classList.add('hidden');
+        gameOverMenu.classList.add('hidden');
+        sequence = [];
+        level = 0;
+        baseSpeed = 600;
+        updateScore();
+        nextRound();
+    }
+
+    function nextRound() {
+        level++;
+        userStep = 0;
+        updateScore();
+        
+        sequence.push(Math.floor(Math.random() * 4));
+        
+        if(baseSpeed > 200) baseSpeed -= 25; // Aggressive speed up
+
+        hub.innerText = "OBSERVE";
+        hub.style.color = "var(--neon-pink)";
+        hub.style.borderColor = "var(--neon-pink)";
+        hub.style.boxShadow = "0 0 30px var(--neon-pink), inset 0 0 15px var(--neon-pink)";
+        
+        arena.classList.add('locked'); 
+        
+        setTimeout(() => { playDemo(); }, 1000);
+    }
+
+    async function playDemo() {
+        for (let i = 0; i < sequence.length; i++) {
+            await flashPad(sequence[i], baseSpeed);
+            await sleep(baseSpeed / 2); 
+        }
+        
+        arena.classList.remove('locked');
+        hub.innerText = "REPEAT";
+        hub.style.color = "var(--neon-blue)";
+        hub.style.borderColor = "var(--neon-blue)";
+        hub.style.boxShadow = "0 0 30px var(--neon-blue), inset 0 0 15px var(--neon-blue)";
+    }
+
+    function flashPad(id, duration) {
+        return new Promise(resolve => {
+            const pad = document.getElementById(`pad-${id}`);
+            
+            pad.classList.add(`active-${id}`);
+            reactor.style.background = `radial-gradient(circle, ${colors[id]} 0%, transparent 65%)`;
+
+            setTimeout(() => {
+                pad.classList.remove(`active-${id}`);
+                reactor.style.background = `radial-gradient(circle, rgba(255,255,255,0.02) 0%, transparent 60%)`;
+                resolve();
+            }, duration);
+        });
+    }
+
+    function handleInput(id) {
+        flashPad(id, 200);
+
+        if (id === sequence[userStep]) {
+            userStep++;
+            
+            if (userStep === sequence.length) {
+                arena.classList.add('locked');
+                hub.innerText = "SYNCED";
+                hub.style.color = "var(--neon-green)";
+                hub.style.borderColor = "var(--neon-green)";
+                hub.style.boxShadow = "0 0 30px var(--neon-green), inset 0 0 15px var(--neon-green)";
+                
+                setTimeout(nextRound, 1000);
+            }
+        } else {
+            triggerGameOver();
+        }
+    }
+
+    function triggerGameOver() {
+        arena.classList.add('locked');
+        
+        document.body.classList.add('flash-red');
+        arena.classList.add('shake');
+        
+        hub.innerText = "ERROR";
+        hub.style.color = "#fff";
+        hub.style.borderColor = "var(--neon-pink)";
+        hub.style.background = "var(--neon-pink)";
+        hub.style.boxShadow = "0 0 50px var(--neon-pink)";
+
+        if (level - 1 > highScore) {
+            highScore = level - 1;
+            localStorage.setItem('synapseHighScore', highScore);
+            highscoreEl.innerText = highScore.toString().padStart(2, '0');
+        }
+
+        setTimeout(() => {
+            document.body.classList.remove('flash-red');
+            arena.classList.remove('shake');
+            hub.style.background = "#05050a"; // Reset hub
+            document.getElementById('final-msg').innerText = `SEQUENCE BROKEN AT LEVEL ${level}`;
+            gameOverMenu.classList.remove('hidden');
+        }, 800);
+    }
+
+    function updateScore() { scoreEl.innerText = level.toString().padStart(2, '0'); }
+    function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+</script>
+</body>
+</html>

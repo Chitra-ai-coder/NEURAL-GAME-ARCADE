@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BRICK BREAKER // CRISP OVERDRIVE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-cyan: #00f2fe;
+            --neon-pink: #ff007f;
+            --neon-green: #0aff99;
+            --neon-yellow: #fefe33;
+            --bg-deep: #05050a;
+            --panel-bg: rgba(0, 242, 254, 0.05);
+            font-family: 'Share Tech Mono', monospace;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--neon-cyan);
+            display: flex; justify-content: center; align-items: center;
+            height: 100vh; overflow: hidden; position: relative;
+        }
+
+        /* --- CRT ARCADE OVERLAYS (Tuned down for clarity) --- */
+        .scanlines {
+            position: fixed; inset: 0; z-index: 999; pointer-events: none;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 4px, 6px 100%;
+        }
+        .vignette {
+            position: fixed; inset: 0; z-index: 998; pointer-events: none;
+            background: radial-gradient(circle at center, transparent 60%, rgba(0,0,0,0.7) 100%);
+        }
+
+        /* --- SCREENS --- */
+        .screen {
+            position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(5, 5, 10, 0.85); backdrop-filter: blur(12px); z-index: 1000; transition: opacity 0.4s;
+        }
+        .hidden { opacity: 0; pointer-events: none; z-index: -1; }
+
+        h1.glitch-title {
+            font-family: 'Orbitron'; font-size: 5.5rem; font-weight: 900; color: #fff;
+            text-shadow: -3px -3px var(--neon-cyan), 3px 3px var(--neon-pink), 0 0 15px #fff;
+            margin-bottom: 2rem; letter-spacing: 15px; text-transform: uppercase; text-align: center;
+        }
+        h2.subtitle { font-family: 'Orbitron'; font-size: 1.5rem; color: #fff; margin-bottom: 2.5rem; letter-spacing: 6px; opacity: 0.9; }
+
+        .btn-group { display: flex; gap: 25px; }
+        .cyber-btn {
+            background: rgba(0,0,0,0.7); border: 2px solid var(--neon-cyan); color: var(--neon-cyan);
+            padding: 15px 50px; font-family: 'Orbitron'; font-size: 1.2rem; font-weight: 700;
+            letter-spacing: 4px; cursor: pointer; border-radius: 4px; transition: all 0.3s ease;
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+        }
+        .cyber-btn:hover { background: var(--neon-cyan); color: #000; box-shadow: 0 0 25px var(--neon-cyan); transform: translateY(-3px); }
+        .btn-pink { border-color: var(--neon-pink); color: var(--neon-pink); box-shadow: 0 0 10px rgba(255, 0, 127, 0.2); }
+        .btn-pink:hover { background: var(--neon-pink); box-shadow: 0 0 25px var(--neon-pink); }
+
+        /* --- MAIN UI --- */
+        .game-wrapper {
+            display: flex; gap: 25px; padding: 25px; background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 242, 254, 0.4); box-shadow: 0 0 60px rgba(0,0,0,1);
+            border-radius: 12px; position: relative; max-width: 98vw; max-height: 98vh; z-index: 10;
+        }
+
+        .sidebar { width: 320px; display: flex; flex-direction: column; gap: 15px; }
+        .module { background: linear-gradient(135deg, rgba(0,242,254,0.08) 0%, rgba(0,0,0,0.6) 100%); border: 1px solid rgba(0, 242, 254, 0.3); padding: 20px; border-radius: 6px; position: relative; }
+        .module::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--neon-cyan); }
+        .module.mod-pink::before { background: var(--neon-pink); }
+        
+        .module h3 { font-family: 'Orbitron'; font-size: 0.9rem; letter-spacing: 3px; color: #fff; margin-bottom: 10px; opacity: 0.8; }
+        .data-value { font-family: 'Orbitron'; font-size: 2.5rem; font-weight: 900; color: #fff; text-shadow: 0 0 10px var(--neon-cyan); }
+        .val-pink { text-shadow: 0 0 10px var(--neon-pink); }
+
+        .system-log { flex-grow: 1; font-size: 0.9rem; color: var(--neon-cyan); line-height: 1.6; overflow: hidden; font-weight: bold; }
+
+        /* Canvas Container */
+        .canvas-container { 
+            position: relative; border: 2px solid rgba(0, 242, 254, 0.5); border-radius: 8px; 
+            box-shadow: 0 0 30px rgba(0, 242, 254, 0.2); 
+            display: flex; justify-content: center; align-items: center; background: #010103; overflow: hidden;
+        }
+        
+        /* CSS size constraints, internal size handled by JS for crispness */
+        canvas { 
+            display: block; 
+            width: 100%; height: 100%;
+            max-width: 1100px; max-height: 750px; 
+            object-fit: contain; cursor: none; 
+        }
+
+        .shake { animation: shakeAnim 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shakeAnim { 10%, 90% { transform: translate3d(-2px, 1px, 0); } 20%, 80% { transform: translate3d(3px, -1px, 0); } 30%, 50%, 70% { transform: translate3d(-4px, 2px, 0); } 40%, 60% { transform: translate3d(4px, -2px, 0); } }
+
+    </style>
+</head>
+<body>
+
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+
+    <div id="menu-screen" class="screen">
+        <h1 class="glitch-title">BRICK BREAKER</h1>
+        <h2 class="subtitle">AWAITING DIRECTIVE</h2>
+        <div class="btn-group">
+            <button class="cyber-btn" onclick="startProtocol('EASY')">EASY</button>
+            <button class="cyber-btn" onclick="startProtocol('MEDIUM')">MEDIUM</button>
+            <button class="cyber-btn btn-pink" onclick="startProtocol('HARD')">HARD</button>
+        </div>
+    </div>
+
+    <div id="end-screen" class="screen hidden">
+        <h1 class="glitch-title" id="end-title">SYSTEM_FAIL</h1>
+        <h2 class="subtitle">TOTAL YIELD: <span id="final-score" style="color:#fff;">0</span></h2>
+        <button class="cyber-btn" onclick="location.reload()">REBOOT TERMINAL</button>
+    </div>
+
+    <div class="game-wrapper" id="game-ui">
+        <div class="canvas-container" id="canvas-wrap">
+            <canvas id="gameCanvas"></canvas>
+        </div>
+        
+        <aside class="sidebar">
+            <div class="module">
+                <h3>PROTOCOL</h3>
+                <div class="data-value" id="ui-mode" style="font-size: 1.5rem;">EASY</div>
+            </div>
+            <div class="module">
+                <h3>SECTOR</h3>
+                <div class="data-value" id="ui-sector">1 / 3</div>
+            </div>
+            <div class="module mod-pink">
+                <h3>DATA_MINED</h3>
+                <div class="data-value val-pink" id="ui-score">0000</div>
+            </div>
+            <div class="module">
+                <h3>INTEGRITY</h3>
+                <div class="data-value" id="ui-lives">3</div>
+            </div>
+            <div class="module system-log" id="ui-log">
+                > Link Established...<br>
+                > Standby for launch...
+            </div>
+        </aside>
+    </div>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const canvasWrap = document.getElementById("canvas-wrap");
+    
+    // --- DPI SCALING FOR CRISP GRAPHICS ---
+    const LOGICAL_WIDTH = 1100;
+    const LOGICAL_HEIGHT = 750;
+
+    function setupCanvas() {
+        // Get the pixel ratio of the current display (Retina screens are usually 2 or 3)
+        const dpr = window.devicePixelRatio || 1;
+        
+        // Set actual internal canvas resolution multiplied by DPI
+        canvas.width = LOGICAL_WIDTH * dpr;
+        canvas.height = LOGICAL_HEIGHT * dpr;
+        
+        // Normalize coordinate system to use css pixels
+        ctx.scale(dpr, dpr);
+    }
+    setupCanvas();
+
+    // UI Elements
+    const menuScreen = document.getElementById("menu-screen");
+    const endScreen = document.getElementById("end-screen");
+    const endTitle = document.getElementById("end-title");
+    const finalScoreTxt = document.getElementById("final-score");
+    const uiMode = document.getElementById("ui-mode");
+    const uiSector = document.getElementById("ui-sector");
+    const uiScore = document.getElementById("ui-score");
+    const uiLives = document.getElementById("ui-lives");
+    const uiLog = document.getElementById("ui-log");
+
+    // GAME STATE
+    let gameLoopId;
+    let isPlaying = false;
+    let mode = 'EASY';
+    let sector = 1; 
+    let score = 0;
+    let lives = 3;
+
+    // ENTITIES (Using LOGICAL_WIDTH and LOGICAL_HEIGHT)
+    const paddle = { w: 160, h: 18, x: LOGICAL_WIDTH/2 - 80, y: LOGICAL_HEIGHT - 40, color: '#00f2fe' };
+    let ball = { x: LOGICAL_WIDTH/2, y: LOGICAL_HEIGHT - 70, r: 8, dx: 0, dy: 0, speed: 0, color: '#fff', history: [] };
+    let bricks = [];
+    let particles = [];
+    let shockwaves = [];
+    let bgNodes = [];
+
+    // INIT BACKGROUND NEURAL NET
+    for(let i=0; i<40; i++) {
+        bgNodes.push({
+            x: Math.random() * LOGICAL_WIDTH, y: Math.random() * LOGICAL_HEIGHT,
+            vx: (Math.random()-0.5)*0.5, vy: (Math.random()-0.5)*0.5
+        });
+    }
+
+    // MOUSE TRACKING (Scaled to Logical Width)
+    canvas.addEventListener("mousemove", (e) => {
+        let rect = canvas.getBoundingClientRect();
+        // Calculate scale difference between CSS size and Logical size
+        let scaleX = LOGICAL_WIDTH / rect.width; 
+        let mouseX = (e.clientX - rect.left) * scaleX;
+        
+        paddle.x = mouseX - paddle.w / 2;
+        if (paddle.x < 0) paddle.x = 0;
+        if (paddle.x + paddle.w > LOGICAL_WIDTH) paddle.x = LOGICAL_WIDTH - paddle.w;
+    });
+
+    function log(msg) {
+        let currentLogs = uiLog.innerHTML.split('<br>');
+        currentLogs.unshift(`> ${msg}`);
+        if(currentLogs.length > 7) currentLogs.pop();
+        uiLog.innerHTML = currentLogs.join('<br>');
+    }
+
+    function startProtocol(selectedMode) {
+        mode = selectedMode;
+        uiMode.innerText = mode;
+        uiMode.style.color = mode === 'HARD' ? 'var(--neon-pink)' : 'var(--neon-cyan)';
+        
+        score = 0; lives = 3; sector = 1;
+        updateHUD();
+        menuScreen.classList.add('hidden');
+        log(`PROTOCOL ${mode} ACCEPTED.`);
+        
+        loadSector();
+        isPlaying = true;
+        gameLoop();
+    }
+
+    function loadSector() {
+        uiSector.innerText = `${sector} / 3`;
+        log(`GENERATING SECTOR ${sector}...`);
+
+        let speedBase = mode === 'EASY' ? 9 : mode === 'MEDIUM' ? 12 : 15;
+        let rowsBase = mode === 'EASY' ? 4 : mode === 'MEDIUM' ? 6 : 8;
+        
+        ball.speed = speedBase + (sector * 1.5); 
+        paddle.w = mode === 'HARD' ? 120 : 160 - (sector * 15); 
+        
+        buildBricks(12, rowsBase + (sector - 1));
+        resetBall();
+    }
+
+    function buildBricks(cols, rows) {
+        bricks = [];
+        const pad = 15;
+        const bW = (LOGICAL_WIDTH - (pad * (cols + 1))) / cols;
+        const bH = 30;
+        const offsetTop = 100;
+
+        for (let r = 0; r < rows; r++) {
+            for (let c = 0; c < cols; c++) {
+                let hits = 1; let color = '#00f2fe'; 
+                let rand = Math.random();
+                if (mode === 'HARD' || sector === 3) {
+                    if (rand > 0.4) { hits = 2; color = '#fefe33'; } 
+                    if (rand > 0.75) { hits = 3; color = '#ff007f'; } 
+                } else if (mode === 'MEDIUM' || sector === 2) {
+                    if (rand > 0.6) { hits = 2; color = '#fefe33'; }
+                }
+
+                bricks.push({
+                    x: (c * (bW + pad)) + pad, y: (r * (bH + pad)) + offsetTop,
+                    w: bW, h: bH, hits: hits, maxHits: hits, color: color, active: true
+                });
+            }
+        }
+    }
+
+    function resetBall() {
+        ball.x = paddle.x + paddle.w / 2;
+        ball.y = paddle.y - 20;
+        let angle = (Math.random() * Math.PI/2) - Math.PI/4; 
+        ball.dx = ball.speed * Math.sin(angle);
+        ball.dy = -ball.speed * Math.cos(angle);
+        ball.history = [];
+    }
+
+    function updateHUD() {
+        uiScore.innerText = score.toString().padStart(5, '0');
+        uiLives.innerText = lives;
+    }
+
+    function triggerShake() {
+        canvasWrap.classList.remove('shake');
+        void canvasWrap.offsetWidth;
+        canvasWrap.classList.add('shake');
+    }
+
+    // --- VISUAL EFFECTS ---
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x; this.y = y; this.color = color;
+            this.angle = Math.random() * Math.PI * 2;
+            this.speed = Math.random() * 8 + 2;
+            this.dx = Math.cos(this.angle) * this.speed;
+            this.dy = Math.sin(this.angle) * this.speed;
+            this.life = 1.0; this.decay = Math.random() * 0.04 + 0.02;
+            this.size = Math.random() * 5 + 2;
+        }
+        update() { 
+            this.x += this.dx; this.y += this.dy; 
+            this.dy += 0.15; // Gravity
+            this.life -= this.decay; 
+        }
+        draw(ctx) {
+            ctx.globalAlpha = Math.max(0, this.life);
+            ctx.fillStyle = this.color;
+            ctx.shadowBlur = 10; ctx.shadowColor = this.color;
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill();
+        }
+    }
+
+    class Shockwave {
+        constructor(x, y, color) {
+            this.x = x; this.y = y; this.color = color;
+            this.radius = 5; this.life = 1.0;
+        }
+        update() { this.radius += 10; this.life -= 0.1; }
+        draw(ctx) {
+            ctx.globalAlpha = Math.max(0, this.life);
+            ctx.strokeStyle = this.color; ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2); ctx.stroke();
+        }
+    }
+
+    function spawnEffects(x, y, color, amt) {
+        for(let i=0; i<amt; i++) particles.push(new Particle(x, y, color));
+        shockwaves.push(new Shockwave(x, y, color));
+    }
+
+    // --- MAIN LOOP ---
+    function update() {
+        // Background Nodes
+        bgNodes.forEach(n => {
+            n.x += n.vx; n.y += n.vy;
+            if(n.x < 0 || n.x > LOGICAL_WIDTH) n.vx *= -1;
+            if(n.y < 0 || n.y > LOGICAL_HEIGHT) n.vy *= -1;
+        });
+
+        // Ball Trail
+        ball.history.push({x: ball.x, y: ball.y});
+        if(ball.history.length > 12) ball.history.shift();
+
+        // FX Cleanup
+        particles.forEach(p => p.update()); particles = particles.filter(p => p.life > 0);
+        shockwaves.forEach(s => s.update()); shockwaves = shockwaves.filter(s => s.life > 0);
+
+        ball.x += ball.dx; ball.y += ball.dy;
+
+        // Walls
+        if(ball.x - ball.r < 0 || ball.x + ball.r > LOGICAL_WIDTH) { ball.dx *= -1; spawnEffects(ball.x, ball.y, '#fff', 5); }
+        if(ball.y - ball.r < 0) { ball.dy *= -1; spawnEffects(ball.x, ball.y, '#fff', 5); }
+        
+        // Death
+        if(ball.y + ball.r > LOGICAL_HEIGHT) {
+            lives--; updateHUD(); triggerShake(); log("CRITICAL: SIGNAL LOST.");
+            if(lives <= 0) endGame(false); else resetBall();
+        }
+
+        // Paddle Collision
+        if(ball.dy > 0 && ball.y + ball.r > paddle.y && ball.x > paddle.x && ball.x < paddle.x + paddle.w) {
+            let hitPoint = (ball.x - (paddle.x + paddle.w/2)) / (paddle.w/2);
+            let bounceAngle = hitPoint * (Math.PI / 2.5);
+            
+            ball.dx = ball.speed * Math.sin(bounceAngle);
+            ball.dy = -ball.speed * Math.cos(bounceAngle);
+            ball.y = paddle.y - ball.r; 
+            spawnEffects(ball.x, ball.y, paddle.color, 15);
+            triggerShake();
+        }
+
+        // Brick Collision
+        let activeBricks = 0;
+        bricks.forEach(b => {
+            if(!b.active) return;
+            activeBricks++;
+
+            if(ball.x + ball.r > b.x && ball.x - ball.r < b.x + b.w && ball.y + ball.r > b.y && ball.y - ball.r < b.y + b.h) {
+                let overlapLeft = (ball.x + ball.r) - b.x;
+                let overlapRight = (b.x + b.w) - (ball.x - ball.r);
+                let overlapTop = (ball.y + ball.r) - b.y;
+                let overlapBottom = (b.y + b.h) - (ball.y - ball.r);
+
+                let minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+                if (minOverlap === overlapLeft || minOverlap === overlapRight) ball.dx *= -1;
+                else ball.dy *= -1;
+
+                b.hits--;
+
+                if(b.hits <= 0) {
+                    b.active = false; score += (b.maxHits * 15);
+                    spawnEffects(b.x + b.w/2, b.y + b.h/2, b.color, 25);
+                    triggerShake();
+                } else {
+                    b.color = b.hits === 2 ? '#fefe33' : '#00f2fe';
+                    score += 5; spawnEffects(ball.x, ball.y, '#fff', 8);
+                }
+                updateHUD();
+            }
+        });
+
+        if(activeBricks === 0) {
+            if(sector >= 3) endGame(true);
+            else { sector++; score += 1000; updateHUD(); loadSector(); }
+        }
+    }
+
+    function draw() {
+        // Deep Space Background - Crisper without clearing alpha
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.fillStyle = '#010103'; 
+        ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+
+        // Draw Neural Background
+        ctx.strokeStyle = 'rgba(0, 242, 254, 0.1)'; ctx.lineWidth = 1;
+        bgNodes.forEach((n1, i) => {
+            bgNodes.slice(i+1).forEach(n2 => {
+                let dist = Math.hypot(n1.x-n2.x, n1.y-n2.y);
+                if(dist < 150) {
+                    ctx.beginPath(); ctx.moveTo(n1.x, n1.y); ctx.lineTo(n2.x, n2.y); ctx.stroke();
+                }
+            });
+            ctx.fillStyle = 'rgba(0, 242, 254, 0.3)';
+            ctx.beginPath(); ctx.arc(n1.x, n1.y, 2, 0, Math.PI*2); ctx.fill();
+        });
+
+        // Draw Bricks - Sharp and Solid
+        bricks.forEach(b => {
+            if(!b.active) return;
+            
+            // Hard, crisp fill
+            ctx.fillStyle = b.color;
+            ctx.shadowBlur = 8; // Reduced blur for sharpness
+            ctx.shadowColor = b.color;
+            ctx.fillRect(b.x, b.y, b.w, b.h);
+            
+            // Inner crisp outline
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+            ctx.strokeRect(b.x+2, b.y+2, b.w-4, b.h-4);
+            
+            if(b.hits > 1) {
+                ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+                ctx.strokeRect(b.x+4, b.y+4, b.w-8, b.h-8);
+            }
+        });
+
+        // Draw Paddle - Crisp
+        ctx.fillStyle = paddle.color; 
+        ctx.shadowBlur = 10; ctx.shadowColor = paddle.color;
+        ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+        ctx.fillStyle = '#fff'; 
+        ctx.fillRect(paddle.x + paddle.w/2 - 20, paddle.y + 4, 40, paddle.h - 8);
+
+        // FX - Use Lighter Blending ONLY for sparks to keep bricks solid
+        ctx.globalCompositeOperation = 'lighter';
+        shockwaves.forEach(s => s.draw(ctx));
+        particles.forEach(p => p.draw(ctx));
+
+        // Ball Trail
+        ball.history.forEach((pt, i) => {
+            let opacity = i / ball.history.length;
+            ctx.beginPath(); ctx.fillStyle = ball.color; ctx.globalAlpha = opacity * 0.6;
+            ctx.arc(pt.x, pt.y, ball.r * opacity, 0, Math.PI*2); ctx.fill();
+        });
+        
+        // Ball Core
+        ctx.globalAlpha = 1.0;
+        ctx.globalCompositeOperation = 'source-over'; // Reset to solid for ball
+        ctx.fillStyle = '#fff'; ctx.shadowBlur = 15; ctx.shadowColor = ball.color;
+        ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    function endGame(isWin) {
+        isPlaying = false;
+        cancelAnimationFrame(gameLoopId);
+        
+        finalScoreTxt.innerText = score.toString().padStart(5, '0');
+        endTitle.innerText = isWin ? "SYSTEM_PURGED" : "CORE_COLLAPSE";
+        endTitle.style.color = isWin ? "var(--neon-green)" : "var(--neon-pink)";
+        endTitle.style.textShadow = `0 0 20px ${isWin ? "var(--neon-green)" : "var(--neon-pink)"}`;
+        
+        endScreen.classList.remove('hidden');
+    }
+
+    function gameLoop() {
+        if(!isPlaying) return;
+        update();
+        draw();
+        gameLoopId = requestAnimationFrame(gameLoop);
+    }
+</script>
+</body>
+</html>

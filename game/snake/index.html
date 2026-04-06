@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHITRABHANU | NEON SNAKE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700;900&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        :root {
+            --bg-deep: #010103;
+            --neon-blue: #00f2fe;
+            --neon-red: #ff003c; 
+            --font-main: 'Orbitron', sans-serif;
+            --font-sub: 'Rajdhani', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-deep); color: white;
+            font-family: var(--font-sub); height: 100vh; display: flex;
+            flex-direction: column; overflow: hidden; user-select: none;
+        }
+
+        /* --- DEEP BACKGROUND --- */
+        .universe-bg { position: fixed; inset: 0; z-index: -3; overflow: hidden; background: radial-gradient(circle at center, #0a0a1a 0%, #000 100%); }
+        .binary-stream {
+            position: absolute; inset: -50%; width: 200%; height: 200%;
+            z-index: -2; opacity: 0.05; font-family: monospace; font-size: 14px; color: var(--neon-blue);
+            line-height: 1.2; animation: streamPan 60s linear infinite;
+        }
+        @keyframes streamPan { from { transform: translateY(0); } to { transform: translateY(50%); } }
+
+        .vignette { position: fixed; inset: 0; z-index: 100; pointer-events: none; background: radial-gradient(circle at center, transparent 30%, rgba(0,0,0,0.95) 100%); }
+        .scanlines { position: fixed; inset: 0; z-index: 101; pointer-events: none; background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%); background-size: 100% 4px; }
+
+        /* --- TOP HUD --- */
+        header {
+            height: 70px; background: linear-gradient(180deg, rgba(5,5,10,0.95), rgba(0,0,0,0.8));
+            border-bottom: 2px solid rgba(255,255,255,0.1); display: flex; justify-content: center; align-items: center; gap: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.9); z-index: 10;
+        }
+
+        .stat-box { 
+            background: rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.15);
+            padding: 5px 30px; text-align: center; min-width: 220px;
+            clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+            box-shadow: inset 0 0 20px rgba(0,0,0,1); transition: 0.3s;
+        }
+        .stat-label { font-size: 0.75rem; color: #aaa; letter-spacing: 4px; display: block; margin-bottom: 3px; font-weight: 700;}
+        .stat-value { font-family: var(--font-main); font-size: 1.8rem; color: #fff; font-weight: 900; text-shadow: 0 0 15px currentColor; }
+
+        /* --- MASSIVE GAME ARENA --- */
+        main { 
+            flex-grow: 1; display: flex; justify-content: center; align-items: center; 
+            padding: 15px; position: relative; z-index: 5; 
+            height: calc(100vh - 130px); 
+        }
+        
+        .canvas-wrapper {
+            position: relative; background: rgba(2,2,5,0.95);
+            border-radius: 4px;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8), inset 0 0 80px rgba(0, 0, 0, 0.9);
+            display: flex; justify-content: center; align-items: center;
+            width: 100%; height: 100%; overflow: hidden;
+        }
+
+        canvas { 
+            display: block; cursor: none; 
+            width: 100%; height: 100%; 
+            object-fit: contain; 
+            aspect-ratio: 16 / 9; 
+        }
+
+        /* Kinetic Animations */
+        .shake-small { animation: shakeSmall 0.2s cubic-bezier(.36,.07,.19,.97) both; }
+        .shake-hard { animation: shakeHard 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        
+        @keyframes shakeSmall { 0%, 100% { transform: translate3d(0, 0, 0); } 25% { transform: translate3d(-3px, 3px, 0); } 75% { transform: translate3d(3px, -3px, 0); } }
+        @keyframes shakeHard { 10%, 90% { transform: translate3d(-6px, 0, 0); } 20%, 80% { transform: translate3d(8px, 0, 0); } 30%, 50%, 70% { transform: translate3d(-12px, 0, 0); } 40%, 60% { transform: translate3d(12px, 0, 0); } }
+
+        /* --- OVERLAYS --- */
+        .overlay {
+            position: absolute; inset: 0; background: rgba(2,2,5,0.85); backdrop-filter: blur(15px);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 50; transition: opacity 0.4s;
+        }
+        .hidden { opacity: 0; pointer-events: none; z-index: -1; }
+
+        .glitch-title {
+            font-family: var(--font-main); font-size: 6.5rem; font-weight: 900; letter-spacing: 15px; margin-bottom: 10px;
+            text-shadow: 0 10px 40px rgba(0,0,0,1), -4px -4px var(--neon-blue), 4px 4px var(--neon-red); text-transform: uppercase;
+        }
+
+        .btn-group { display: flex; gap: 30px; }
+        .cyber-btn {
+            background: rgba(0,0,0,0.8); border: 2px solid var(--neon-cyan, #00f2fe); color: var(--neon-cyan, #00f2fe);
+            padding: 15px 50px; font-family: var(--font-main); font-size: 1.4rem; font-weight: 700;
+            letter-spacing: 5px; cursor: pointer; transition: 0.3s;
+            clip-path: polygon(15px 0, 100% 0, 100% calc(100% - 15px), calc(100% - 15px) 100%, 0 100%, 0 15px);
+            box-shadow: inset 0 0 15px rgba(0,0,0,1);
+        }
+        .cyber-btn:hover { background: var(--neon-cyan, #00f2fe); color: #000; box-shadow: 0 0 40px var(--neon-cyan, #00f2fe); transform: translateY(-3px); }
+        .btn-red { --neon-cyan: var(--neon-red); }
+
+        /* --- COMPACT BOTTOM CONTROLS --- */
+        footer {
+            height: 60px; background: rgba(5,5,10,0.95); border-top: 1px solid rgba(255,255,255,0.15);
+            display: flex; justify-content: space-between; align-items: center; padding: 0 50px; z-index: 10;
+        }
+        .controls-hint { color: var(--neon-blue); letter-spacing: 3px; font-size: 1rem; font-weight: 700; display: flex; align-items: center; gap: 10px; text-shadow: 0 0 10px var(--neon-blue);}
+    </style>
+</head>
+<body>
+
+    <div class="universe-bg"><div class="binary-stream" id="binary-stream"></div></div>
+    <div class="vignette"></div>
+    <div class="scanlines"></div>
+
+    <header>
+        <div class="stat-box" style="border-bottom: 3px solid var(--neon-blue);">
+            <span class="stat-label">DATA_MINED</span>
+            <span class="stat-value" style="color: var(--neon-blue);" id="score">0000</span>
+        </div>
+        <div class="stat-box" style="border-bottom: 3px solid #fff;" id="status-box">
+            <span class="stat-label">LINK_STATUS</span>
+            <span class="stat-value" style="color: #fff;" id="status-display">STANDBY</span>
+        </div>
+        <div class="stat-box" style="border-bottom: 3px solid var(--neon-red);">
+            <span class="stat-label">PEAK_EXTRACTION</span>
+            <span class="stat-value" style="color: var(--neon-red);" id="highScore">0000</span>
+        </div>
+    </header>
+
+    <main>
+        <div class="canvas-wrapper" id="canvas-wrapper">
+            <canvas id="gameCanvas"></canvas>
+            
+            <div id="start-menu" class="overlay">
+                <h1 class="glitch-title">NEON SNAKE</h1>
+                <p style="color: #fff; letter-spacing: 4px; margin-bottom: 10px; font-size: 1.1rem; font-weight: 700; text-shadow: 0 0 10px #fff; text-align: center;">
+                    [ LEFT/RIGHT = <span style="color: var(--neon-blue);">BLUE BORDER</span> ] <br>
+                    [ TOP/BOTTOM = <span style="color: var(--neon-red);">RED BORDER</span> ]
+                </p>
+                <p style="color: var(--neon-red); letter-spacing: 2px; margin-bottom: 40px; font-size: 1.1rem; font-weight: 700; text-shadow: 0 0 15px var(--neon-red); text-align: center;">
+                    EAT THE DATA CORE TO SHIFT COLOR. <br> MATCH SNAKE COLOR TO THE BORDER TO WARP SAFELY.
+                </p>
+                
+                <div class="btn-group">
+                    <button class="cyber-btn" onclick="startGame(90, 'SCOUT')">SCOUT</button>
+                    <button class="cyber-btn btn-red" onclick="startGame(60, 'LEGEND')">LEGEND</button>
+                </div>
+            </div>
+
+            <div id="death-menu" class="overlay hidden">
+                <h1 class="glitch-title" style="text-shadow: 0 10px 30px #000, -5px -5px var(--neon-red), 5px 5px #fff; color: var(--neon-red);">LINK SEVERED</h1>
+                <p style="font-size: 1.5rem; letter-spacing: 4px; margin-bottom: 40px; color: #ccc;">FINAL YIELD: <span id="final-report" style="color: #fff; font-weight: 900; font-size: 3rem; text-shadow: 0 0 20px #fff;">0</span></p>
+                <button class="cyber-btn btn-red" onclick="location.reload()"><i data-lucide="power" style="display:inline; vertical-align:middle; margin-right: 10px; width: 24px;"></i> REBOOT SYSTEM</button>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <div class="controls-hint"><i data-lucide="move"></i> ARROW KEYS TO NAVIGATE // SPACE TO PAUSE</div>
+        <div class="btn-group" style="gap: 15px;">
+            <button class="cyber-btn" style="padding: 8px 25px; font-size: 1rem;" id="pauseBtn" onclick="togglePause()">PAUSE</button>
+            <button class="cyber-btn btn-red" style="padding: 8px 25px; font-size: 1rem;" onclick="gameOver()">TERMINATE</button>
+        </div>
+    </footer>
+
+<script>
+    lucide.createIcons();
+
+    const stream = document.getElementById('binary-stream');
+    let binaryContent = '';
+    for (let i = 0; i < 3000; i++) { binaryContent += Math.round(Math.random()); if (i % 100 === 0) binaryContent += '<br>'; }
+    stream.innerHTML = binaryContent;
+
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d", { alpha: false });
+    const wrapper = document.getElementById("canvas-wrapper");
+    
+    // --- MASSIVE GRID MATH FOR 16:9 MONITORS ---
+    const LOGICAL_WIDTH = 1920;
+    const LOGICAL_HEIGHT = 1080;
+    const BOX_SIZE = 30; // Shrinking the box size makes the grid vastly larger (64 x 36 grid)
+    const COLS = LOGICAL_WIDTH / BOX_SIZE; 
+    const ROWS = LOGICAL_HEIGHT / BOX_SIZE; 
+
+    function setupCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = LOGICAL_WIDTH * dpr;
+        canvas.height = LOGICAL_HEIGHT * dpr;
+        ctx.scale(dpr, dpr);
+    }
+    setupCanvas();
+
+    const scoreEl = document.getElementById("score");
+    const highscoreEl = document.getElementById("highScore");
+    const statusEl = document.getElementById("status-display");
+    const statusBox = document.getElementById("status-box");
+    const pauseBtn = document.getElementById("pauseBtn");
+
+    let snake, food, walls, direction, nextDirection, score, gameLoop, speed, particles, isPaused = false;
+    let globalAngle = 0; 
+    let headFlash = 0;   
+    let growthQueue = 0; 
+    let justWarped = false; 
+
+    const NEON_BLUE = '#00f2fe';
+    const NEON_RED = '#ff003c';
+
+    let highScore = localStorage.getItem("neonSnakeHS") || 0;
+    highscoreEl.textContent = highScore.toString().padStart(4, '0');
+
+    class Particle {
+        constructor(x, y, color) {
+            this.x = x; this.y = y; this.color = color;
+            this.angle = Math.random() * Math.PI * 2;
+            this.speed = Math.random() * 12 + 3;
+            this.life = 1.0;
+            this.decay = Math.random() * 0.05 + 0.02;
+            this.size = Math.random() * 6 + 3; 
+        }
+        update() {
+            this.x += Math.cos(this.angle) * this.speed;
+            this.y += Math.sin(this.angle) * this.speed;
+            this.life -= this.decay;
+        }
+        draw(ctx) {
+            ctx.globalAlpha = Math.max(0, this.life);
+            ctx.fillStyle = this.color;
+            ctx.shadowBlur = 15; ctx.shadowColor = this.color;
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill();
+        }
+    }
+
+    function startGame(initialSpeed, diffName) {
+        document.getElementById("start-menu").classList.add("hidden");
+        document.getElementById("death-menu").classList.add("hidden");
+        
+        const startX = Math.floor(COLS / 2) * BOX_SIZE;
+        const startY = Math.floor(ROWS / 2) * BOX_SIZE;
+        
+        snake = [
+            {x: startX, y: startY, color: NEON_BLUE}, 
+            {x: startX - BOX_SIZE, y: startY, color: NEON_BLUE}, 
+            {x: startX - (BOX_SIZE*2), y: startY, color: NEON_BLUE}
+        ];
+
+        direction = "RIGHT"; nextDirection = "RIGHT";
+        score = 0; speed = initialSpeed; particles = []; walls = []; 
+        isPaused = false; globalAngle = 0; growthQueue = 0;
+        
+        statusEl.textContent = "ONLINE"; statusEl.style.color = "#fff";
+        statusBox.style.borderColor = "#fff";
+        scoreEl.textContent = "0000";
+        
+        spawnFood();
+        
+        let wallCount = diffName === 'LEGEND' ? 30 : 0;
+        for(let i=0; i<wallCount; i++) spawnWall(); 
+
+        if(gameLoop) clearInterval(gameLoop);
+        gameLoop = setInterval(updateLogic, speed);
+        requestAnimationFrame(drawLoop);
+    }
+
+    function togglePause() {
+        if(!document.getElementById("death-menu").classList.contains("hidden")) return;
+        isPaused = !isPaused;
+        pauseBtn.textContent = isPaused ? "RESUME" : "PAUSE";
+        statusEl.textContent = isPaused ? "PAUSED" : "ONLINE";
+        statusEl.style.color = isPaused ? "var(--neon-blue)" : "#fff";
+    }
+
+    function spawnFood() {
+        let valid = false;
+        while(!valid) {
+            food = { 
+                x: Math.floor(Math.random() * COLS) * BOX_SIZE, 
+                y: Math.floor(Math.random() * ROWS) * BOX_SIZE,
+                // Randomly picks ONE color for the next food
+                color: Math.random() < 0.5 ? NEON_BLUE : NEON_RED 
+            };
+            valid = !collision(food.x, food.y, snake) && !collision(food.x, food.y, walls);
+        }
+    }
+
+    function spawnWall() {
+        let valid = false; let wall;
+        while(!valid) {
+            wall = { x: Math.floor(Math.random() * COLS) * BOX_SIZE, y: Math.floor(Math.random() * ROWS) * BOX_SIZE };
+            let dist = Math.hypot(wall.x - (LOGICAL_WIDTH/2), wall.y - (LOGICAL_HEIGHT/2));
+            // Keep walls slightly away from the center start, and away from borders
+            valid = dist > 300 && wall.x >= BOX_SIZE*2 && wall.x <= LOGICAL_WIDTH - BOX_SIZE*3 && wall.y >= BOX_SIZE*2 && wall.y <= LOGICAL_HEIGHT - BOX_SIZE*3 && !collision(wall.x, wall.y, snake) && (!food || (wall.x !== food.x || wall.y !== food.y));
+        }
+        walls.push(wall);
+    }
+
+    function triggerShake(type) {
+        wrapper.classList.remove('shake-small', 'shake-hard');
+        void wrapper.offsetWidth; 
+        wrapper.classList.add(type);
+    }
+
+    document.addEventListener("keydown", e => {
+        if(e.code === "Space") { togglePause(); e.preventDefault(); }
+        if(isPaused) return;
+        const key = e.key;
+        if(key === "ArrowUp" && direction !== "DOWN") nextDirection = "UP";
+        else if(key === "ArrowDown" && direction !== "UP") nextDirection = "DOWN";
+        else if(key === "ArrowLeft" && direction !== "RIGHT") nextDirection = "LEFT";
+        else if(key === "ArrowRight" && direction !== "LEFT") nextDirection = "RIGHT";
+    });
+
+    function updateLogic() {
+        if(isPaused) return;
+
+        direction = nextDirection;
+        let headX = snake[0].x; 
+        let headY = snake[0].y;
+        let currentHeadColor = snake[0].color; 
+        justWarped = false;
+
+        // Apply Movement
+        if (direction === "UP") headY -= BOX_SIZE;
+        if (direction === "DOWN") headY += BOX_SIZE;
+        if (direction === "LEFT") headX -= BOX_SIZE;
+        if (direction === "RIGHT") headX += BOX_SIZE;
+
+        // --- DYNAMIC BORDER LOGIC ---
+        
+        // 1. LEFT & RIGHT BORDERS (BLUE)
+        if (headX < 0) {
+            if (currentHeadColor === NEON_BLUE) {
+                headX = LOGICAL_WIDTH - BOX_SIZE; 
+                justWarped = true;
+            } else {
+                gameOver(); return; // Crashed into blue border while red!
+            }
+        } else if (headX >= LOGICAL_WIDTH) {
+            if (currentHeadColor === NEON_BLUE) {
+                headX = 0; 
+                justWarped = true;
+            } else {
+                gameOver(); return; 
+            }
+        }
+
+        // 2. TOP & BOTTOM BORDERS (RED)
+        if (headY < 0) {
+            if (currentHeadColor === NEON_RED) {
+                headY = LOGICAL_HEIGHT - BOX_SIZE; 
+                justWarped = true;
+            } else {
+                gameOver(); return; // Crashed into red border while blue!
+            }
+        } else if (headY >= LOGICAL_HEIGHT) {
+            if (currentHeadColor === NEON_RED) {
+                headY = 0; 
+                justWarped = true;
+            } else {
+                gameOver(); return; 
+            }
+        }
+
+        if (justWarped) {
+            triggerShake('shake-small');
+            for(let i=0; i<25; i++) particles.push(new Particle(headX + BOX_SIZE/2, headY + BOX_SIZE/2, currentHeadColor));
+        }
+
+        // --- INTERNAL COLLISION LOGIC ---
+        if (collision(headX, headY, snake) || collision(headX, headY, walls)) {
+            gameOver(); return;
+        }
+
+        // --- EAT FOOD LOGIC ---
+        if (headX === food.x && headY === food.y) {
+            score += 10;
+            scoreEl.textContent = score.toString().padStart(4, '0');
+            headFlash = 1.0; 
+            triggerShake('shake-small');
+            
+            for(let i=0; i<30; i++) particles.push(new Particle(headX + BOX_SIZE/2, headY + BOX_SIZE/2, food.color));
+            
+            growthQueue += 2; 
+            
+            // Instantly change entire snake color to match the food
+            currentHeadColor = food.color; 
+            snake.forEach(part => part.color = food.color);
+            
+            spawnFood(); 
+        }
+
+        const newHead = {x: headX, y: headY, color: currentHeadColor};
+        snake.unshift(newHead);
+        
+        if (growthQueue > 0) {
+            growthQueue--;
+        } else {
+            snake.pop(); 
+        }
+    }
+
+    function drawLoop() {
+        if(!isPaused) {
+            globalAngle += 0.05;
+            if(headFlash > 0) headFlash -= 0.05;
+
+            // Background
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = "#010103"; ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+            
+            ctx.globalCompositeOperation = 'lighter';
+            
+            let currentHeadColor = snake.length > 0 ? snake[0].color : NEON_BLUE;
+
+            // --- PROPER SOLID GLOWING BORDERS ---
+            ctx.shadowBlur = 20;
+
+            // Left & Right Portal Zones (BLUE)
+            let bluePulse = (Math.sin(globalAngle * 2) * 0.2) + 0.4;
+            let blueOpacity = currentHeadColor === NEON_BLUE ? bluePulse : 0.8;
+            
+            ctx.shadowColor = NEON_BLUE;
+            ctx.fillStyle = `rgba(0, 242, 254, ${blueOpacity})`;
+            ctx.fillRect(0, 0, 8, LOGICAL_HEIGHT);
+            ctx.fillRect(LOGICAL_WIDTH - 8, 0, 8, LOGICAL_HEIGHT);
+
+            let portalGradL = ctx.createLinearGradient(0, 0, BOX_SIZE * 2, 0);
+            portalGradL.addColorStop(0, `rgba(0, 242, 254, ${blueOpacity * 0.5})`); portalGradL.addColorStop(1, "transparent");
+            ctx.fillStyle = portalGradL; ctx.fillRect(0, 0, BOX_SIZE * 2, LOGICAL_HEIGHT);
+
+            let portalGradR = ctx.createLinearGradient(LOGICAL_WIDTH, 0, LOGICAL_WIDTH - BOX_SIZE * 2, 0);
+            portalGradR.addColorStop(0, `rgba(0, 242, 254, ${blueOpacity * 0.5})`); portalGradR.addColorStop(1, "transparent");
+            ctx.fillStyle = portalGradR; ctx.fillRect(LOGICAL_WIDTH - BOX_SIZE * 2, 0, BOX_SIZE * 2, LOGICAL_HEIGHT);
+
+            // Top & Bottom Portal Zones (RED)
+            let redPulse = (Math.sin(globalAngle * 2 + Math.PI) * 0.2) + 0.4;
+            let redOpacity = currentHeadColor === NEON_RED ? redPulse : 0.8;
+
+            ctx.shadowColor = NEON_RED;
+            ctx.fillStyle = `rgba(255, 0, 60, ${redOpacity})`;
+            ctx.fillRect(0, 0, LOGICAL_WIDTH, 8);
+            ctx.fillRect(0, LOGICAL_HEIGHT - 8, LOGICAL_WIDTH, 8);
+
+            let lethalGradT = ctx.createLinearGradient(0, 0, 0, BOX_SIZE * 2);
+            lethalGradT.addColorStop(0, `rgba(255, 0, 60, ${redOpacity * 0.5})`); lethalGradT.addColorStop(1, "transparent");
+            ctx.fillStyle = lethalGradT; ctx.fillRect(0, 0, LOGICAL_WIDTH, BOX_SIZE * 2);
+
+            let lethalGradB = ctx.createLinearGradient(0, LOGICAL_HEIGHT, 0, LOGICAL_HEIGHT - BOX_SIZE * 2);
+            lethalGradB.addColorStop(0, `rgba(255, 0, 60, ${redOpacity * 0.5})`); lethalGradB.addColorStop(1, "transparent");
+            ctx.fillStyle = lethalGradB; ctx.fillRect(0, LOGICAL_HEIGHT - BOX_SIZE * 2, LOGICAL_WIDTH, BOX_SIZE * 2);
+
+            ctx.shadowBlur = 0; // Reset shadow
+
+            // Dynamic Headlamp
+            if (snake && snake.length > 0) {
+                let hx = snake[0].x + BOX_SIZE/2; let hy = snake[0].y + BOX_SIZE/2;
+                let radius = 400 + (headFlash * 200);
+                let shadowRgba = snake[0].color === NEON_BLUE ? "rgba(0, 242, 254, 0.15)" : "rgba(255, 0, 60, 0.15)";
+                let grad = ctx.createRadialGradient(hx, hy, 0, hx, hy, radius);
+                grad.addColorStop(0, shadowRgba); grad.addColorStop(1, "transparent");
+                ctx.fillStyle = grad; ctx.fillRect(0, 0, LOGICAL_WIDTH, LOGICAL_HEIGHT);
+            }
+
+            // Grid Lines
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.05)"; ctx.lineWidth = 1;
+            for(let x=0; x<=LOGICAL_WIDTH; x+=BOX_SIZE) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, LOGICAL_HEIGHT); ctx.stroke(); }
+            for(let y=0; y<=LOGICAL_HEIGHT; y+=BOX_SIZE) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(LOGICAL_WIDTH, y); ctx.stroke(); }
+            
+            ctx.globalCompositeOperation = 'source-over';
+
+            // Neutral Firewalls (Legend Mode)
+            walls.forEach(w => {
+                ctx.fillStyle = "rgba(255, 255, 255, 0.1)"; ctx.fillRect(w.x, w.y, BOX_SIZE, BOX_SIZE);
+                ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 2; ctx.strokeRect(w.x+4, w.y+4, BOX_SIZE-8, BOX_SIZE-8);
+                ctx.shadowBlur = 15; ctx.shadowColor = "#ffffff";
+                ctx.fillStyle = "#ffffff"; ctx.fillRect(w.x+10, w.y+10, BOX_SIZE-20, BOX_SIZE-20);
+                ctx.shadowBlur = 0;
+            });
+
+            // Particles
+            ctx.globalCompositeOperation = 'lighter';
+            particles.forEach(p => p.update()); particles.forEach(p => p.draw(ctx));
+            ctx.globalCompositeOperation = 'source-over';
+
+            // Food (Single Element)
+            if (food) {
+                let offset = Math.sin((globalAngle * 5) + (food.x + food.y)) * 5; 
+                ctx.shadowBlur = 20; ctx.shadowColor = food.color; ctx.fillStyle = food.color;
+                
+                ctx.beginPath();
+                ctx.moveTo(food.x + BOX_SIZE/2, food.y + 4 + offset);
+                ctx.lineTo(food.x + BOX_SIZE - 4, food.y + BOX_SIZE/2 + offset);
+                ctx.lineTo(food.x + BOX_SIZE/2, food.y + BOX_SIZE - 4 + offset);
+                ctx.lineTo(food.x + 4, food.y + BOX_SIZE/2 + offset);
+                ctx.fill();
+                
+                ctx.fillStyle = "#fff"; ctx.shadowBlur = 30;
+                ctx.beginPath(); ctx.arc(food.x + BOX_SIZE/2, food.y + BOX_SIZE/2 + offset, 5, 0, Math.PI*2); ctx.fill();
+                ctx.shadowBlur = 0;
+            }
+
+            // --- SNAKE RENDERING ---
+            if (snake && snake.length > 0) {
+                ctx.lineWidth = 6;
+                ctx.lineCap = 'round';
+                
+                // Lines connecting the snake
+                for(let index = 1; index < snake.length; index++) {
+                    let part = snake[index];
+                    let prevPart = snake[index - 1];
+                    
+                    if (Math.abs(part.x - prevPart.x) <= BOX_SIZE && Math.abs(part.y - prevPart.y) <= BOX_SIZE) {
+                        ctx.strokeStyle = part.color; 
+                        ctx.beginPath();
+                        ctx.moveTo(part.x + BOX_SIZE/2, part.y + BOX_SIZE/2);
+                        ctx.lineTo(prevPart.x + BOX_SIZE/2, prevPart.y + BOX_SIZE/2);
+                        ctx.stroke();
+                    }
+                }
+                
+                // Blocks
+                snake.forEach((part, index) => {
+                    let isHead = index === 0;
+                    let cubeColor = isHead ? "#ffffff" : part.color; 
+                    let glowColor = part.color;
+
+                    let pulse = isHead ? 0 : Math.sin((globalAngle * 4) - index) * 2;
+                    let pad = 3 - pulse; 
+
+                    ctx.shadowBlur = isHead ? 40 : 20;
+                    ctx.shadowColor = glowColor;
+                    ctx.fillStyle = cubeColor;
+                    
+                    ctx.beginPath();
+                    ctx.roundRect(part.x + pad, part.y + pad, BOX_SIZE - (pad*2), BOX_SIZE - (pad*2), 6);
+                    ctx.fill();
+                    
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = "rgba(0,0,0,0.7)";
+                    ctx.beginPath();
+                    ctx.roundRect(part.x + pad + 6, part.y + pad + 6, BOX_SIZE - (pad*2) - 12, BOX_SIZE - (pad*2) - 12, 3);
+                    ctx.fill();
+
+                    // Snake Eyes
+                    if(isHead) {
+                        ctx.fillStyle = "#000"; 
+                        let eyeSize = 6;
+                        let e1x, e1y, e2x, e2y;
+                        if(direction === "RIGHT") { e1x = part.x+18; e1y = part.y+6; e2x = part.x+18; e2y = part.y+18; }
+                        else if(direction === "LEFT") { e1x = part.x+6; e1y = part.y+6; e2x = part.x+6; e2y = part.y+18; }
+                        else if(direction === "UP") { e1x = part.x+6; e1y = part.y+6; e2x = part.x+18; e2y = part.y+6; }
+                        else if(direction === "DOWN") { e1x = part.x+6; e1y = part.y+18; e2x = part.x+18; e2y = part.y+18; }
+                        ctx.fillRect(e1x, e1y, eyeSize, eyeSize); ctx.fillRect(e2x, e2y, eyeSize, eyeSize);
+                    }
+                });
+            }
+        }
+        requestAnimationFrame(drawLoop);
+    }
+
+    function collision(x, y, array) {
+        return array.some(part => part.x === x && part.y === y);
+    }
+
+    function gameOver() {
+        clearInterval(gameLoop);
+        isPaused = true;
+        triggerShake('shake-hard');
+        
+        statusEl.textContent = "OFFLINE";
+        statusEl.style.color = "var(--neon-red)";
+        statusBox.style.borderColor = "var(--neon-red)";
+        
+        if(score > highScore) {
+            highScore = score;
+            localStorage.setItem("neonSnakeHS", highScore);
+            highscoreEl.textContent = highScore.toString().padStart(4, '0');
+        }
+        
+        setTimeout(() => {
+            document.getElementById("death-menu").classList.remove("hidden");
+            document.getElementById("final-report").textContent = score.toString().padStart(4, '0');
+        }, 600); 
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CHITRABHANU | NEURAL ARCADE</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&family=Rajdhani:wght@300;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #020205;
+            --panel-bg: rgba(10, 10, 26, 0.8);
+            --neon-blue: #00f2fe;
+            --neon-pink: #ff0055;
+            --neon-green: #0aff99;
+            --font-main: 'Orbitron', sans-serif;
+            --font-sub: 'Rajdhani', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; cursor: crosshair; }
+
+        body {
+            background-color: var(--bg-deep);
+            color: white;
+            font-family: var(--font-sub);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- BACKGROUND --- */
+        .universe {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: -1;
+            background-image: 
+                linear-gradient(rgba(0, 242, 254, 0.05) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 242, 254, 0.05) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: gridPan 60s linear infinite;
+        }
+        @keyframes gridPan { from { background-position: 0 0; } to { background-position: 40px 40px; } }
+
+        /* --- MAIN GAME SECTION (LEFT/CENTER) --- */
+        .main-frame {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        header { text-align: center; margin-bottom: 30px; }
+        .main-title { font-family: var(--font-main); font-size: 3rem; letter-spacing: 10px; text-shadow: 0 0 15px var(--neon-blue); }
+
+        .status-box {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 10px 30px;
+            border-radius: 5px;
+            border: 1px solid rgba(0, 242, 254, 0.3);
+            font-family: var(--font-main);
+            font-size: 1rem;
+            margin-top: 10px;
+            min-width: 300px;
+            text-align: center;
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            width: 550px;
+            height: 550px;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 20px;
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .cell {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: var(--font-main);
+            font-size: 5rem;
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .cell:not(.taken):hover {
+            background: rgba(0, 242, 254, 0.15);
+            transform: scale(1.02);
+            border-color: var(--neon-blue);
+        }
+
+        .cell.O { color: var(--neon-blue); text-shadow: 0 0 20px var(--neon-blue); }
+        .cell.X { color: var(--neon-pink); text-shadow: 0 0 20px var(--neon-pink); }
+        .cell.winner { background: rgba(10, 255, 153, 0.15); border-color: var(--neon-green); box-shadow: 0 0 30px var(--neon-green); }
+
+        /* --- RIGHT SIDEBAR (SCOREBOARD) --- */
+        .sidebar {
+            width: 350px;
+            background: var(--panel-bg);
+            border-left: 2px solid rgba(0, 242, 254, 0.2);
+            display: flex;
+            flex-direction: column;
+            padding: 40px 20px;
+            backdrop-filter: blur(15px);
+            z-index: 10;
+        }
+
+        .sidebar h2 {
+            font-family: var(--font-main);
+            font-size: 1.2rem;
+            letter-spacing: 3px;
+            margin-bottom: 40px;
+            color: var(--neon-blue);
+            text-align: center;
+        }
+
+        .score-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .score-card {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .score-card.blue { border-right: 5px solid var(--neon-blue); }
+        .score-card.pink { border-right: 5px solid var(--neon-pink); }
+
+        .score-label { font-family: var(--font-main); font-size: 0.8rem; color: #888; margin-bottom: 5px; }
+        .score-num { font-family: var(--font-main); font-size: 3rem; font-weight: 900; }
+        
+        #score-o { color: var(--neon-blue); text-shadow: 0 0 10px var(--neon-blue); }
+        #score-x { color: var(--neon-pink); text-shadow: 0 0 10px var(--neon-pink); }
+
+        .win-info {
+            font-size: 0.9rem;
+            color: var(--neon-green);
+            text-align: center;
+            margin-top: 20px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .btn-reset {
+            margin-top: 40px;
+            background: transparent;
+            border: 1px solid var(--neon-pink);
+            color: var(--neon-pink);
+            font-family: var(--font-main);
+            padding: 12px;
+            width: 100%;
+            letter-spacing: 2px;
+            transition: 0.4s;
+            cursor: pointer;
+        }
+
+        .btn-reset:hover { background: var(--neon-pink); color: white; box-shadow: 0 0 20px var(--neon-pink); }
+
+        @media (max-width: 1000px) {
+            body { flex-direction: column; overflow-y: auto; }
+            .sidebar { width: 100%; border-left: none; border-top: 2px solid var(--neon-blue); height: auto; }
+            .board { width: 90vw; height: 90vw; }
+            .cell { font-size: 4rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="universe"></div>
+
+    <main class="main-frame">
+        <header>
+            <h1 class="main-title">NEURAL ARCADE</h1>
+            <div class="status-box" id="turn-display">AWAITING_INPUT...</div>
+        </header>
+
+        <div class="board" id="board"></div>
+    </main>
+
+    <aside class="sidebar">
+        <h2>SESSION_DATA</h2>
+        <div class="score-container">
+            <div class="score-card blue">
+                <div class="score-label">NEURAL_PLAYER_O</div>
+                <div id="score-o" class="score-num">00</div>
+            </div>
+            <div class="score-card pink">
+                <div class="score-label">CYBER_PLAYER_X</div>
+                <div id="score-x" class="score-num">00</div>
+            </div>
+            <div class="win-info">SERIES TARGET: 05 WINS</div>
+        </div>
+        
+        <div id="timer-box" style="margin-top: 30px; font-family: var(--font-main); color: var(--neon-green); text-align: center; height: 20px;"></div>
+
+        <button class="btn-reset" onclick="resetFullStats()">REBOOT SYSTEM</button>
+    </aside>
+
+    <script>
+        const board = document.getElementById('board');
+        const turnDisplay = document.getElementById('turn-display');
+        const scoreOText = document.getElementById('score-o');
+        const scoreXText = document.getElementById('score-x');
+        const timerBox = document.getElementById('timer-box');
+
+        let scoreO = 0;
+        let scoreX = 0;
+        let currentPlayer = 'O';
+        let gameActive = true;
+        let gameState = Array(9).fill("");
+
+        const winPatterns = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+
+        function createBoard() {
+            board.innerHTML = '';
+            gameState.forEach((_, i) => {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                cell.addEventListener('click', () => makeMove(cell, i));
+                board.appendChild(cell);
+            });
+            updateTurnText();
+        }
+
+        function makeMove(cell, i) {
+            if (gameState[i] !== "" || !gameActive) return;
+            gameState[i] = currentPlayer;
+            cell.innerText = currentPlayer;
+            cell.classList.add(currentPlayer, 'taken');
+            checkWinner();
+        }
+
+        function checkWinner() {
+            let win = false;
+            let pattern = [];
+
+            for (let p of winPatterns) {
+                if (gameState[p[0]] && gameState[p[0]] === gameState[p[1]] && gameState[p[0]] === gameState[p[2]]) {
+                    win = true; pattern = p; break;
+                }
+            }
+
+            if (win) {
+                gameActive = false;
+                pattern.forEach(idx => board.children[idx].classList.add('winner'));
+                incrementScore();
+                return;
+            }
+
+            if (!gameState.includes("")) {
+                gameActive = false;
+                turnDisplay.innerText = "STATUS: DRAW DETECTED";
+                autoRestart(2);
+                return;
+            }
+
+            currentPlayer = currentPlayer === 'O' ? 'X' : 'O';
+            updateTurnText();
+        }
+
+        function incrementScore() {
+            if (currentPlayer === 'O') {
+                scoreO++;
+                scoreOText.innerText = scoreO.toString().padStart(2, '0');
+            } else {
+                scoreX++;
+                scoreXText.innerText = scoreX.toString().padStart(2, '0');
+            }
+
+            if (scoreO === 5 || scoreX === 5) {
+                turnDisplay.innerText = `SERIES WINNER: PLAYER_${currentPlayer}`;
+                timerBox.innerText = "FINALIZING SERIES...";
+                setTimeout(resetFullStats, 4000);
+            } else {
+                turnDisplay.innerText = `ROUND WINNER: ${currentPlayer}`;
+                autoRestart(2);
+            }
+        }
+
+        function updateTurnText() {
+            turnDisplay.innerText = `CURRENT_LINK: PLAYER_${currentPlayer}`;
+            turnDisplay.style.color = currentPlayer === 'O' ? 'var(--neon-blue)' : 'var(--neon-pink)';
+        }
+
+        function autoRestart(sec) {
+            let time = sec;
+            const interval = setInterval(() => {
+                timerBox.innerText = `AUTO_REBOOT: ${time--}S`;
+                if (time < 0) {
+                    clearInterval(interval);
+                    gameState = Array(9).fill("");
+                    gameActive = true;
+                    timerBox.innerText = "";
+                    createBoard();
+                }
+            }, 1000);
+        }
+
+        function resetFullStats() {
+            scoreO = 0; scoreX = 0;
+            scoreOText.innerText = "00"; scoreXText.innerText = "00";
+            timerBox.innerText = "";
+            gameState = Array(9).fill("");
+            gameActive = true;
+            createBoard();
+        }
+
+        createBoard();
+    </script>
+</body>
+</html>

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NEURAL PONG | ULTIMATE</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+
+        :root {
+            --bg-deep: #050508;
+            --neon-blue: #00f2fe;
+            --neon-red: #ff0055;
+            --font: 'Orbitron', sans-serif;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background-color: var(--bg-deep);
+            color: white;
+            font-family: var(--font);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- HEXAGONAL BACKGROUND --- */
+        .hex-bg {
+            position: absolute; top: 0; left: 0; width: 200%; height: 200%; z-index: -2;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='103.92' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 103.92 L0 86.6 V51.96 L30 34.64 L60 51.96 V86.6 Z M15 25.98 L0 17.32 V-17.32 L15 -25.98 L30 -17.32 V17.32 Z M45 25.98 L30 17.32 V-17.32 L45 -25.98 L60 -17.32 V17.32 Z' fill='none' stroke='%2300f2fe' stroke-width='0.5' stroke-opacity='0.15'/%3E%3C/svg%3E");
+            background-size: 80px; animation: hexDrift 40s linear infinite;
+        }
+        .hex-bg-overlay {
+            position: absolute; top: 0; left: 0; width: 200%; height: 200%; z-index: -1;
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='103.92' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 103.92 L0 86.6 V51.96 L30 34.64 L60 51.96 V86.6 Z' fill='none' stroke='%23ff0055' stroke-width='0.5' stroke-opacity='0.1'/%3E%3C/svg%3E");
+            background-size: 120px; animation: hexDriftReverse 60s linear infinite;
+        }
+
+        @keyframes hexDrift { from { transform: translate(0, 0); } to { transform: translate(-100px, -173.2px); } }
+        @keyframes hexDriftReverse { from { transform: translate(-100px, -173.2px); } to { transform: translate(0, 0); } }
+
+        /* --- UI SCREENS --- */
+        .screen {
+            position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center;
+            background: rgba(5, 5, 8, 0.85); backdrop-filter: blur(10px); z-index: 10; transition: opacity 0.4s ease;
+        }
+        .hidden { opacity: 0; pointer-events: none; z-index: -1; }
+
+        h1 { font-size: 5rem; color: #fff; text-shadow: -3px -3px var(--neon-blue), 3px 3px var(--neon-red); margin-bottom: 2rem; letter-spacing: 8px; text-align: center; }
+        h2 { font-size: 1.5rem; margin-bottom: 2rem; letter-spacing: 3px; color: #ccc; text-align: center; }
+
+        .btn-group { display: flex; gap: 30px; }
+        button {
+            background: transparent; border: 2px solid var(--neon-blue); color: var(--neon-blue); font-family: var(--font);
+            font-size: 1.2rem; font-weight: 700; padding: 15px 40px; cursor: pointer; border-radius: 8px; letter-spacing: 3px;
+            transition: 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        button:hover { background: var(--neon-blue); color: #000; box-shadow: 0 0 25px var(--neon-blue); transform: scale(1.1); }
+        button.btn-red { border-color: var(--neon-red); color: var(--neon-red); }
+        button.btn-red:hover { background: var(--neon-red); box-shadow: 0 0 25px var(--neon-red); }
+
+        /* --- GAME HUD --- */
+        #game-hud {
+            position: absolute; top: 30px; width: 1200px; max-width: 95vw; display: flex; justify-content: space-between; align-items: center;
+            z-index: 5; padding: 15px 30px; background: rgba(0, 0, 0, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px;
+        }
+        .hud-text { font-size: 1.2rem; letter-spacing: 2px; }
+        .blue-glow { color: var(--neon-blue); text-shadow: 0 0 10px var(--neon-blue); }
+        .red-glow { color: var(--neon-red); text-shadow: 0 0 10px var(--neon-red); }
+        .timer-highlight { font-size: 1.5rem; font-weight: 900; color: #fff; }
+
+        /* --- CANVAS WRAPPER & EFFECTS --- */
+        .canvas-wrapper {
+            position: relative; box-shadow: -15px 0 50px rgba(0, 242, 254, 0.15), 15px 0 50px rgba(255, 0, 85, 0.15); border-radius: 10px; overflow: hidden;
+        }
+        canvas {
+            display: block; background: rgba(10, 10, 15, 0.85); border-left: 4px solid var(--neon-blue); border-right: 4px solid var(--neon-red);
+            width: 100%; max-width: 1200px; height: auto; aspect-ratio: 12 / 7;
+        }
+
+        /* Animations */
+        .flash { animation: screenFlash 0.15s ease-out; }
+        .shake { animation: screenShake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        
+        @keyframes screenFlash { 0% { filter: brightness(2) contrast(1.5); } 100% { filter: brightness(1) contrast(1); } }
+        @keyframes screenShake { 
+            10%, 90% { transform: translate3d(-2px, 0, 0); }
+            20%, 80% { transform: translate3d(4px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-8px, 0, 0); }
+            40%, 60% { transform: translate3d(8px, 0, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="hex-bg"></div>
+    <div class="hex-bg-overlay"></div>
+
+    <div id="menu-screen" class="screen">
+        <h1>NEURAL PONG</h1>
+       <h2>TARGET: 6 POINTS TO WIN</h2>
+        <div class="btn-group">
+            <button onclick="startGame('EASY')">EASY</button>
+            <button onclick="startGame('MEDIUM')">MEDIUM</button>
+            <button class="btn-red" onclick="startGame('HARD')">HARD</button>
+        </div>
+    </div>
+
+    <div id="game-over-screen" class="screen hidden">
+        <h1 id="winner-title">SYSTEM BREACHED</h1>
+        <h2>FINAL SCORE: <span id="final-score" style="color: #fff;">0 - 0</span></h2>
+        <h3 style="margin-bottom: 3rem; color: #aaa; font-size: 1.2rem; letter-spacing: 2px;">MATCH TIME: <span id="final-time">0.00s</span></h3>
+        <button onclick="showMenu()">REBOOT MAINFRAME</button>
+    </div>
+
+    <div id="game-hud" class="hidden">
+        <div class="hud-text blue-glow">USER_LINK</div>
+        <div class="hud-text">TIME: <span id="hud-timer" class="timer-highlight">0.00s</span></div>
+        <div class="hud-text red-glow">CPU_CORE: <span id="hud-level" style="color:#fff;">EASY</span></div>
+    </div>
+
+    <div class="canvas-wrapper" id="canvas-container">
+        <canvas id="gameCanvas" width="1200" height="700"></canvas>
+    </div>
+
+<script>
+    const menuScreen = document.getElementById('menu-screen');
+    const gameOverScreen = document.getElementById('game-over-screen');
+    const gameHud = document.getElementById('game-hud');
+    const canvasContainer = document.getElementById('canvas-container');
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // --- GAME STATE ---
+    let gameLoopId;
+    let isPlaying = false;
+    let startTime = 0;
+    let matchTime = 0;
+    
+    let scores = { player: 0, ai: 0 };
+    const  WIN_SCORE = 6;;
+    let difficultyConfig = {};
+
+    const paddleW = 20, paddleH = 140, ballRadius = 12;
+    let player = { x: 40, y: 0, w: paddleW, h: paddleH, color: '#00f2fe' };
+    let ai = { x: canvas.width - 40 - paddleW, y: 0, w: paddleW, h: paddleH, color: '#ff0055' };
+    let ball = { x: 0, y: 0, dx: 0, dy: 0, speed: 0, color: '#fff', history: [] };
+
+    let particles = [];
+    let keys = {};
+
+    document.addEventListener('keydown', e => keys[e.key] = true);
+    document.addEventListener('keyup', e => keys[e.key] = false);
+
+    // --- PARTICLE SYSTEM ---
+    class Particle {
+        constructor(x, y, color, speed, size) {
+            this.x = x; this.y = y; this.color = color;
+            this.angle = Math.random() * Math.PI * 2;
+            this.velocity = Math.random() * speed + 2;
+            this.dx = Math.cos(this.angle) * this.velocity;
+            this.dy = Math.sin(this.angle) * this.velocity;
+            this.life = 1.0;
+            this.decay = Math.random() * 0.03 + 0.02;
+            this.size = Math.random() * size + 2;
+        }
+        update() {
+            this.x += this.dx; this.y += this.dy;
+            this.life -= this.decay;
+        }
+        draw(ctx) {
+            ctx.globalAlpha = Math.max(0, this.life);
+            ctx.fillStyle = this.color;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = this.color;
+            ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI*2); ctx.fill();
+            ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
+        }
+    }
+
+    function spawnParticles(x, y, color, amount, speed, size) {
+        for(let i=0; i<amount; i++) {
+            particles.push(new Particle(x, y, color, speed, size));
+        }
+    }
+
+    // --- GAME FLOW ---
+    function showMenu() {
+        gameOverScreen.classList.add('hidden');
+        menuScreen.classList.remove('hidden');
+        gameHud.classList.add('hidden');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function startGame(level) {
+        document.getElementById('hud-level').innerText = level;
+        scores = { player: 0, ai: 0 };
+        
+        if (level === 'EASY') difficultyConfig = { speed: 8, mult: 1.02, aiSpeed: 5.5, playerSpeed: 12 };
+        else if (level === 'MEDIUM') difficultyConfig = { speed: 12, mult: 1.05, aiSpeed: 9.5, playerSpeed: 15 };
+        else if (level === 'HARD') difficultyConfig = { speed: 16, mult: 1.08, aiSpeed: 20, playerSpeed: 18 }; 
+
+        menuScreen.classList.add('hidden');
+        gameOverScreen.classList.add('hidden');
+        gameHud.classList.remove('hidden');
+
+        player.y = canvas.height / 2 - paddleH / 2;
+        ai.y = canvas.height / 2 - paddleH / 2;
+        particles = [];
+        
+        resetBall(1); // Serve to player
+        
+        startTime = Date.now();
+        isPlaying = true;
+        gameLoop();
+    }
+
+    function resetBall(direction) {
+        ball.x = canvas.width / 2;
+        ball.y = canvas.height / 2;
+        ball.speed = difficultyConfig.speed;
+        ball.history = [];
+        ball.color = '#fff';
+        
+        let angle = (Math.random() * Math.PI / 4) - (Math.PI / 8); 
+        ball.dx = direction * ball.speed * Math.cos(angle);
+        ball.dy = ball.speed * Math.sin(angle);
+    }
+
+    function handleScore(isPlayerScore) {
+        // Visual Feedback
+        canvasContainer.classList.remove('shake');
+        void canvasContainer.offsetWidth; 
+        canvasContainer.classList.add('shake');
+        
+        if (isPlayerScore) {
+            scores.player++;
+            spawnParticles(canvas.width, ball.y, player.color, 40, 15, 6); // Explode on AI side
+            if(scores.player < WIN_SCORE) resetBall(1); // Serve to AI
+        } else {
+            scores.ai++;
+            spawnParticles(0, ball.y, ai.color, 40, 15, 6); // Explode on Player side
+            if(scores.ai < WIN_SCORE) resetBall(-1); // Serve to Player
+        }
+
+        // Check Win Condition
+        if (scores.player >= WIN_SCORE || scores.ai >= WIN_SCORE) {
+            setTimeout(endMatch, 500); // Small delay to let explosion happen
+        }
+    }
+
+    function endMatch() {
+        isPlaying = false;
+        cancelAnimationFrame(gameLoopId);
+        
+        document.getElementById('final-time').innerText = matchTime.toFixed(2) + "s";
+        document.getElementById('final-score').innerText = `${scores.player} - ${scores.ai}`;
+        
+        let title = document.getElementById('winner-title');
+        if (scores.player >= WIN_SCORE) {
+            title.innerText = "MAINFRAME DEFEATED";
+            title.style.color = player.color;
+            title.style.textShadow = `0 0 20px ${player.color}`;
+        } else {
+            title.innerText = "SYSTEM BREACHED";
+            title.style.color = ai.color;
+            title.style.textShadow = `0 0 20px ${ai.color}`;
+        }
+
+        gameHud.classList.add('hidden');
+        gameOverScreen.classList.remove('hidden');
+    }
+
+    function triggerHitFlash() {
+        canvas.classList.remove('flash');
+        void canvas.offsetWidth;
+        canvas.classList.add('flash');
+    }
+
+    // --- CORE LOGIC ---
+    function update() {
+        matchTime = (Date.now() - startTime) / 1000;
+        document.getElementById('hud-timer').innerText = matchTime.toFixed(2) + "s";
+
+        // Particle Cleanup
+        particles.forEach(p => p.update());
+        particles = particles.filter(p => p.life > 0);
+
+        // Ball Trail
+        ball.history.push({ x: ball.x, y: ball.y, color: ball.color });
+        if (ball.history.length > 20) ball.history.shift();
+
+        // Player Movement
+        if (keys['ArrowUp']) player.y -= difficultyConfig.playerSpeed;
+        if (keys['ArrowDown']) player.y += difficultyConfig.playerSpeed;
+        player.y = Math.max(0, Math.min(canvas.height - player.h, player.y));
+
+        // AI Movement
+        let aiCenter = ai.y + ai.h / 2;
+        let diff = ball.y - aiCenter;
+        ai.y += Math.sign(diff) * Math.min(Math.abs(diff), difficultyConfig.aiSpeed);
+        ai.y = Math.max(0, Math.min(canvas.height - ai.h, ai.y));
+
+        // Move Ball
+        ball.x += ball.dx;
+        ball.y += ball.dy;
+
+        // Wall Bounces
+        if (ball.y - ballRadius < 0 || ball.y + ballRadius > canvas.height) {
+            ball.dy *= -1;
+            ball.y = ball.y - ballRadius < 0 ? ballRadius : canvas.height - ballRadius;
+            spawnParticles(ball.x, ball.y, ball.color, 10, 5, 3); // Sparks on wall hit
+        }
+
+        // --- PADDLE COLLISIONS ---
+        // Player (Blue)
+        if (ball.dx < 0 && ball.x - ballRadius < player.x + player.w && ball.y > player.y && ball.y < player.y + player.h) {
+            let hitPoint = (ball.y - (player.y + player.h / 2)) / (player.h / 2);
+            let angle = hitPoint * (Math.PI / 3); 
+            ball.speed *= difficultyConfig.mult; 
+            ball.dx = ball.speed * Math.cos(angle);
+            ball.dy = ball.speed * Math.sin(angle);
+            ball.x = player.x + player.w + ballRadius; 
+            ball.color = player.color;
+            triggerHitFlash();
+            spawnParticles(ball.x, ball.y, player.color, 15, 8, 4); // Sparks on paddle hit
+        }
+
+        // AI (Red)
+        if (ball.dx > 0 && ball.x + ballRadius > ai.x && ball.y > ai.y && ball.y < ai.y + ai.h) {
+            let hitPoint = (ball.y - (ai.y + ai.h / 2)) / (ai.h / 2);
+            let angle = hitPoint * (Math.PI / 3);
+            ball.speed *= difficultyConfig.mult;
+            ball.dx = -ball.speed * Math.cos(angle);
+            ball.dy = ball.speed * Math.sin(angle);
+            ball.x = ai.x - ballRadius;
+            ball.color = ai.color;
+            triggerHitFlash();
+            spawnParticles(ball.x, ball.y, ai.color, 15, 8, 4);
+        }
+
+        // --- SCORING ---
+        if (ball.x < 0) {
+            handleScore(false); // AI scored
+        } else if (ball.x > canvas.width) {
+            handleScore(true); // Player scored
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // --- HOLOGRAPHIC BACKGROUND SCORES (UPDATED OPACITY) ---
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.font = "bold 300px Orbitron";
+        
+        // Increased opacity from 0.05 to 0.15 for better visibility
+        ctx.fillStyle = "rgba(0, 242, 254, 0.15)";
+        ctx.fillText(scores.player, canvas.width * 0.25, canvas.height / 2 + 20);
+        
+        ctx.fillStyle = "rgba(255, 0, 85, 0.15)";
+        ctx.fillText(scores.ai, canvas.width * 0.75, canvas.height / 2 + 20);
+
+        // Center Net
+        let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        grad.addColorStop(0, "rgba(0, 242, 254, 0.2)"); grad.addColorStop(0.5, "rgba(255, 255, 255, 0.4)"); grad.addColorStop(1, "rgba(255, 0, 85, 0.2)");
+        ctx.strokeStyle = grad; ctx.lineWidth = 4; ctx.setLineDash([20, 20]);
+        ctx.beginPath(); ctx.moveTo(canvas.width / 2, 0); ctx.lineTo(canvas.width / 2, canvas.height); ctx.stroke(); ctx.setLineDash([]); 
+
+        // Particles
+        particles.forEach(p => p.draw(ctx));
+
+        // Ball Trail
+        for (let i = 0; i < ball.history.length; i++) {
+            let pt = ball.history[i];
+            let opacity = i / ball.history.length; 
+            let size = ballRadius * opacity;       
+            ctx.beginPath(); ctx.fillStyle = pt.color; ctx.globalAlpha = opacity * 0.5;
+            ctx.arc(pt.x, pt.y, size, 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.globalAlpha = 1.0; 
+
+        // Draw Ball
+        ctx.fillStyle = '#fff'; ctx.shadowBlur = 20; ctx.shadowColor = ball.color;
+        ctx.beginPath(); ctx.arc(ball.x, ball.y, ballRadius, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+
+        // Player Paddle
+        ctx.fillStyle = player.color; ctx.shadowBlur = 25; ctx.shadowColor = player.color;
+        ctx.fillRect(player.x, player.y, player.w, player.h);
+        ctx.fillStyle = '#fff'; ctx.fillRect(player.x + player.w - 4, player.y, 2, player.h);
+
+        // AI Paddle
+        ctx.fillStyle = ai.color; ctx.shadowBlur = 25; ctx.shadowColor = ai.color;
+        ctx.fillRect(ai.x, ai.y, ai.w, ai.h);
+        ctx.fillStyle = '#fff'; ctx.fillRect(ai.x + 2, ai.y, 2, ai.h);
+
+        ctx.shadowBlur = 0;
+    }
+
+    function gameLoop() {
+        if (!isPlaying) return;
+        update();
+        draw();
+        gameLoopId = requestAnimationFrame(gameLoop);
+    }
+</script>
+</body>
+</html>
